@@ -1,38 +1,112 @@
 import './App.css'
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function App() {
-  const restaurants = [
-    "Sushi House",
-    "Burger Place",
-    "Noodle Heaven",
-    "Taco Town",
-    "Pasta Corner",
-    "Curry Spot",
-  ];
+  const [restaurants, setRestaurants] = useState([]);
+  const [newRestaurant, setNewRestaurant] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [newLocation, setNewLocation] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [randomRestaurant, setRandomRestaurant] = useState(null);
 
-  const [picked, setPicked] = useState(null);
+  useEffect(() => {
+    fetch("http://localhost:5000/restaurants")
+      .then(res => res.json())
+      .then(data => setRestaurants(data));
+  }, []);
 
-  const pickRestaurant = () => {
-    const random = Math.floor(Math.random() * restaurants.length);
-    setPicked(restaurants[random]);
-  }
+  const handleAdd = async () => {
+    const res = await fetch("http://localhost:5000/restaurants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        name: newRestaurant,
+        category: newCategory,
+        location: newLocation,
+        price: newPrice
+      })
+    });
+    const data = await res.json();
+    setRestaurants(prev => [...prev, data]);
+    setNewRestaurant("");
+    setNewCategory("");
+    setNewLocation("");
+    setNewPrice("");
+  };
+
+  const pickRandom = () => {
+    if (restaurants.length > 0) {
+      const random = restaurants[Math.floor(Math.random() * restaurants.length)];
+      setRandomRestaurant(random);
+    }
+  };
 
   return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white shadow-xl rounded-2xl p-6 w-full max-w-md">
-        <h1 className="text-xl font-semibold text-gray-800 mb-4">WhereWeEating 🍽️</h1>
-
-        <button onClick={pickRestaurant} className="w-full bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition">
-          Pick a restaurant!
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Where We Eating</h1>
+      <div className="mb-4">
+        <input
+          value={newRestaurant}
+          onChange={(e) => setNewRestaurant(e.target.value)}
+          className="border p-2 mr-2"
+          placeholder="Restaurant"
+        />
+        <input
+          value={newCategory}
+          onChange={(e) => setNewCategory(e.target.value)}
+          className="border p-2 mr-2"
+          placeholder="Category"
+        />
+        <input
+          value={newLocation}
+          onChange={(e) => setNewLocation(e.target.value)}
+          className="border p-2 mr-2"
+          placeholder="Location"
+        />
+        <select
+          value={newPrice}
+          onChange={(e) => setNewPrice(e.target.value)}
+          classname="border p-2 mr-2"
+        >
+          <option value="">Select price</option>
+          <option value="$">$</option>
+          <option value="$$">$$</option>
+          <option value="$$$">$$$</option>
+          <option value="$$$$">$$$$</option>
+          <option value="N/A">N/A</option>
+        </select>
+        
+        <button
+          onClick={handleAdd}
+          className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
+        >
+          Add
         </button>
-
-        <div className="mt-4 text-gray-700 text-center">
-          Selected restaurant: <strong>{picked || '---'}</strong>
-        </div>
+        <button
+          onClick={pickRandom}
+          className="bg-green-500 text-white px-4 py-2 rounded"
+        >
+          Random
+        </button>
       </div>
+
+      {randomRestaurant && (
+        <div className="p-4 border rounded bg-purple-100">
+          You should eat at: 
+            <p><strong>Name: </strong>{randomRestaurant.name}</p>
+            <p><strong>Category: </strong>{randomRestaurant.category}</p>
+            <p><strong>Location: </strong>{randomRestaurant.location}</p>
+            <p><strong>Price: </strong>{randomRestaurant.price}</p>
+        </div>
+      )}
+
+      <ul className="list-disc pl-6">
+        {restaurants.map((r) => (
+          <li key={r.id}>{r.name}</li>
+        ))}
+      </ul>
     </div>
-  )
+  );
 }
 
 export default App;
