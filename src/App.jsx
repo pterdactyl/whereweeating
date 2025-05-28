@@ -1,5 +1,6 @@
 import './App.css'
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 function App() {
   const [restaurants, setRestaurants] = useState([]);
@@ -14,25 +15,6 @@ function App() {
       .then(res => res.json())
       .then(data => setRestaurants(data));
   }, []);
-
-  const handleAdd = async () => {
-    const res = await fetch("http://localhost:5000/restaurants", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        name: newRestaurant,
-        category: newCategory,
-        location: newLocation,
-        price: newPrice
-      })
-    });
-    const data = await res.json();
-    setRestaurants(prev => [...prev, data]);
-    setNewRestaurant("");
-    setNewCategory("");
-    setNewLocation("");
-    setNewPrice("");
-  };
 
   const pickRandom = () => {
     if (restaurants.length > 0) {
@@ -77,17 +59,15 @@ function App() {
         </select>
         
         <button
-          onClick={handleAdd}
-          className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
-        >
-          Add
-        </button>
-        <button
           onClick={pickRandom}
-          className="bg-green-500 text-white px-4 py-2 rounded"
+          className="bg-purple-200 text-black px-2 py-1 rounded"
         >
           Random
         </button>
+
+        <Link to="/admin">
+        <button className="bg-purple-200 px-2 py-1 rounded">Go to Admin Page</button>
+        </Link>
       </div>
 
       {randomRestaurant && (
@@ -100,11 +80,6 @@ function App() {
         </div>
       )}
 
-      <ul className="list-disc pl-6">
-        {restaurants.map((r) => (
-          <li key={r.id}>{r.name}</li>
-        ))}
-      </ul>
     </div>
   );
 }

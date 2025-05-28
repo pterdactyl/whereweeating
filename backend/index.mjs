@@ -54,6 +54,14 @@ app.post('/restaurants', async (req, res) => {
   res.status(201).json(newRestaurant)
 })
 
+app.delete('/restaurants/:id', async (req, res) => {
+  const { id } = req.params;
+  await db.read();
+  db.data.restaurants = db.data.restaurants.filter(r => r.id !== id);
+  await db.write();
+  res.status(204).end();
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
