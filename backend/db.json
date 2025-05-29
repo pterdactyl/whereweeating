@@ -1,13 +1,6 @@
 {
   "restaurants": [
     {
-      "id": "r_BrIgzYcwo1NAuG9dLbpg",
-      "name": "Pai Northern Thai Kitchen",
-      "category": "Thai",
-      "location": "18 Duncan Street, Toronto",
-      "price": "$$"
-    },
-    {
       "id": "B70iTJjcPkuYn8ouUewWgw",
       "name": "Gusto 101",
       "category": "Italian",

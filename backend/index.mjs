@@ -40,7 +40,7 @@ app.post('/restaurants', async (req, res) => {
   }
 
   await db.read()
-  // Use a unique id generator or timestamp
+
   const newRestaurant = {
     id: `manual-${Date.now()}`, 
     name,
@@ -53,6 +53,27 @@ app.post('/restaurants', async (req, res) => {
 
   res.status(201).json(newRestaurant)
 })
+
+// PATCH edit a restaurant
+app.patch('/restaurants/:id', async (req, res) => {
+  const { id } = req.params;
+  const updatedData = req.body;
+
+  await db.read();
+  const index = db.data.restaurants.findIndex(r => r.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Restaurant not found' });
+  }
+
+  db.data.restaurants[index] = {
+    ...db.data.restaurants[index],
+    ...updatedData,
+  };
+
+  await db.write();
+  res.json(db.data.restaurants[index]);
+});
 
 app.delete('/restaurants/:id', async (req, res) => {
   const { id } = req.params;

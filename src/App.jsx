@@ -71,7 +71,7 @@ function App() {
       </div>
 
       {randomRestaurant && (
-        <div className="p-4 border rounded bg-purple-100">
+        <div className="p-4 border rounded">
           You should eat at: 
             <p><strong>Name: </strong>{randomRestaurant.name}</p>
             <p><strong>Category: </strong>{randomRestaurant.category}</p>
