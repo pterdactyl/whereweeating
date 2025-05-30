@@ -32,7 +32,7 @@ app.get('/restaurants/random', async (req, res) => {
   res.json(random)
 })
 
-// POST add a single restaurant manually (with full details)
+// POST add a single restaurant manually
 app.post('/restaurants', async (req, res) => {
   const { name, category, location, price } = req.body
   if (!name || !category || !location || !price) {
