@@ -23,14 +23,36 @@ app.get('/restaurants', async (req, res) => {
 
 // GET one random restaurant
 app.get('/restaurants/random', async (req, res) => {
-  await db.read()
-  const restaurants = db.data.restaurants
-  if (!restaurants.length) {
-    return res.status(404).json({ error: 'No restaurants found' })
+  await db.read();
+  let filtered = db.data.restaurants;
+
+  const { category, price, location } = req.query;
+
+  if (category) {
+  const searchTerm = category.toLowerCase();
+  filtered = filtered.filter(r =>
+    r.category && r.category.toLowerCase().includes(searchTerm)
+  );
   }
-  const random = restaurants[Math.floor(Math.random() * restaurants.length)]
-  res.json(random)
-})
+
+  if (price) {
+    filtered = filtered.filter(r => r.price === price);
+  }
+
+  if (location) {
+  const locTerm = location.toLowerCase();
+  filtered = filtered.filter(r =>
+    r.location && r.location.toLowerCase().includes(locTerm)
+  );
+  }
+
+  if (!filtered.length) {
+    return res.status(404).json({ error: 'No matching restaurants found' });
+  }
+
+  const random = filtered[Math.floor(Math.random() * filtered.length)];
+  res.json(random);
+});
 
 // POST add a single restaurant manually
 app.post('/restaurants', async (req, res) => {

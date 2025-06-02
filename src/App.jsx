@@ -1,21 +1,30 @@
 import './App.css'
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function App() {
-  const [restaurants, setRestaurants] = useState([]);
   const [randomRestaurant, setRandomRestaurant] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedPrice, setSelectedPrice] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
 
-  useEffect(() => {
-    fetch("http://localhost:5000/restaurants")
-      .then(res => res.json())
-      .then(data => setRestaurants(data));
-  }, []);
+  const pickRandom = async () => {
+    const params = new URLSearchParams();
 
-  const pickRandom = () => {
-    if (restaurants.length > 0) {
-      const random = restaurants[Math.floor(Math.random() * restaurants.length)];
-      setRandomRestaurant(random);
+    if (selectedCategory) params.append('category', selectedCategory);
+    if (selectedPrice) params.append('price', selectedPrice);
+    if (selectedLocation) params.append('location', selectedLocation);
+
+    try {
+      const res = await fetch(`http://localhost:5000/restaurants/random?${params.toString()}`);
+      if (!res.ok) {
+        setRandomRestaurant(null);
+        return;
+      }
+      const data = await res.json();
+      setRandomRestaurant(data);
+    } catch (error) {
+      console.error('Error fetching random restaurant:', error);
     }
   };
 
@@ -23,27 +32,53 @@ function App() {
     <div className="min-h-screen w-full bg-cover bg-center overflow-hidden 
     flex items-center justify-center" 
     style={{ backgroundImage: "url('/images/main_background.jpg')" }}>
-      
-      <div className="content">
-        <h1 className="text-3xl font-bold mb-4">Where We Eating</h1>
-        
-        <button
-          onClick={pickRandom}
-          className="bg-purple-200 hover:bg-purple-300 px-2 py-1 round 
-          cursor-pointer transition-colors">
-          Random
-        </button>
 
-        <Link to="/admin">
-        <button className="bg-purple-200 hover:bg-purple-300 px-2 py-1 
-        round cursor-pointer transition-colors">
+      <Link to="/admin">
+        <button className="bg-black hover:bg-purple-300 button 
+        text-white absolute top-4 right-1">
           Admin Page
         </button>
-        </Link>
+      </Link>
+      
+      <div className="content" style={{position:"absolute", top: '200px'}}>
+        <h1 className="text-3xl font-bold mb-4">Where We Eating</h1>
+        
+        <div className="flex flex-col gap-2 my-1">
+          <input
+            type="text"
+            placeholder="Category"
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+            className="p-2 rounded"
+          />
+
+          <select onChange={e => setSelectedPrice(e.target.value)} className="p-2 rounded">
+            <option value="">All Prices</option>
+            <option value="$">$</option>
+            <option value="$$">$$</option>
+            <option value="$$$">$$$</option>
+            <option value="$$$$">$$$$</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Location"
+            value={selectedLocation}
+            onChange={e => setSelectedLocation(e.target.value)}
+            className="p-2 rounded"
+          />
+        </div>
+
+
+        <button
+          onClick={pickRandom}
+          className="bg-black hover:bg-purple-300 text-white button">
+          Random
+        </button>
       </div>
 
       {randomRestaurant && (
-        <div className="p-4 border rounded">
+        <div className="content" style={{marginTop:"350px"}}>
           You should eat at: 
             <p><strong>Name: </strong>{randomRestaurant.name}</p>
             <p><strong>Category: </strong>{randomRestaurant.category}</p>

@@ -53,3 +53,11 @@
 .round {
   border-radius: 1.5rem;
 }
+
+.button {
+  margin-left: 1rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}

@@ -201,7 +201,7 @@
       "name": "Miss Likklemore's",
       "category": "Caribbean, Desserts, Cocktail Bars",
       "location": "433 King Street W, Toronto",
-      "price": "N/A"
+      "price": "$$$"
     },
     {
       "id": "H2dDcKs1yeXI_3Kx1UaMKA",
@@ -257,7 +257,7 @@
       "name": "Cheffry's Artisanal Bistro",
       "category": "Bistros, Halal, Indian",
       "location": "388 Richmond Street W, Toronto",
-      "price": "N/A"
+      "price": "$$"
     },
     {
       "id": "sV4QGXQk77dmr-lqTcDTKQ",
@@ -278,7 +278,7 @@
       "name": "LOCAL Public Eatery Adelaide",
       "category": "Comfort Food",
       "location": "141 Adelaide St W, Toronto",
-      "price": "N/A"
+      "price": "$$"
     },
     {
       "id": "lDpVyjENOz_qbxbRoyBi8w",
@@ -348,13 +348,6 @@
       "name": "NextDoor Restaurant",
       "category": "Canadian (New), Bars, Tapas/Small Plates",
       "location": "139 Main Street Unionville, Markham",
-      "price": "$$"
-    },
-    {
-      "id": "SAKg3wBPwfwDgYSoL3Rj_A",
-      "name": "Koh Lipe",
-      "category": "Thai",
-      "location": "4675 Steeles Avenue E, Scarborough",
       "price": "$$"
     },
     {
@@ -607,7 +600,7 @@
       "name": "Ibushi",
       "category": "Japanese",
       "location": "76-505 Highway 7 E, Markham",
-      "price": "N/A"
+      "price": "$$$$"
     },
     {
       "id": "tUU9B0aMLHuL2Yrfcll4lQ",
@@ -1240,13 +1233,6 @@
       "price": "$$"
     },
     {
-      "id": "cE9sve_QivLVFMJhIW4wEg",
-      "name": "North43Bistro",
-      "category": "New American",
-      "location": "1 Spring Point Dr, South Portland",
-      "price": "$$"
-    },
-    {
       "id": "5GkZ8dyghc1DuhQIm009gw",
       "name": "Stern Seafood",
       "category": "Seafood",
@@ -1315,13 +1301,6 @@
       "category": "Japanese, Sushi Bars, Soup",
       "location": "426 US-1, Scarborough",
       "price": "N/A"
-    },
-    {
-      "id": "LzLZshrXNS6_EAYsRhyZvQ",
-      "name": "The Blue Pig Diner",
-      "category": "Diners, Breakfast & Brunch, Bars",
-      "location": "19 State St, Gorham",
-      "price": "$$"
     },
     {
       "id": "xRqALyjPvje-sZ5ZkY1q7g",
@@ -1998,8 +1977,22 @@
     {
       "id": "manual-1748215828777",
       "name": "Deer Garden Signatures",
-      "category": "Chiense",
+      "category": "Chinese",
       "location": "550 Highway 7, Richmond Hill",
+      "price": "$"
+    },
+    {
+      "id": "manual-1748750659944",
+      "name": "Paik's Noodle",
+      "category": "Korean",
+      "location": "1549 Steeles Ave E, North York",
+      "price": "$"
+    },
+    {
+      "id": "manual-1748751597527",
+      "name": "Kome Shokudo",
+      "category": "Japanese",
+      "location": "1383 16th Ave #2, Richmond Hill",
       "price": "$"
     }
   ]
