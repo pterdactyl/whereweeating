@@ -16,9 +16,13 @@ function Admin() {
 
 
   const handleAdd = async () => {
+    const token = localStorage.getItem('token');
     const res = await fetch("http://localhost:5000/restaurants", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${token}`
+       },
       body: JSON.stringify(newData)
     });
 
@@ -28,17 +32,25 @@ function Admin() {
   };
 
   const handleDelete = async (id) => {
+    const token = localStorage.getItem('token');
     await fetch(`http://localhost:5000/restaurants/${id}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
     });
     setRestaurants(prev => prev.filter(r => r.id !== id));
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    const token = localStorage.getItem('token');
     const res = await fetch(`http://localhost:5000/restaurants/${editing.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
       body: JSON.stringify(editing)
     });
 
@@ -63,8 +75,10 @@ function Admin() {
       <h2 className="text-2xl font-bold mb-4">Manage Restaurants</h2>
 
       <Link to="/">
-          <button className="bg-black hover:bg-purple-300 
-          text-white round px-2 py-0.5">Back</button>
+        <button className="bg-black hover:bg-purple-300 button 
+          text-white absolute top-3 right-0">
+            Back
+        </button>
       </Link>
 
       <ul>

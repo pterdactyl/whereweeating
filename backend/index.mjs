@@ -3,17 +3,73 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import axios from 'axios'
 import db from './db.mjs'
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
 
+const JWT_SECRET = process.env.JWT_SECRET || 'yourSecretKey';
+
 app.use(cors())
 app.use(express.json())
 
-const API_KEY = process.env.YELP_API_KEY
-const YELP_API_URL = 'https://api.yelp.com/v3/businesses/search'
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ message: 'Token required' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+}
+
+// ======================= AUTHENTICATION ROUTES =======================
+
+// POST user signup
+app.post('/signup', async (req, res) => {
+  await db.read();
+
+  if (!db.data.users) {
+    db.data.users = [];
+  }
+
+  const { email, password } = req.body;
+  const existingUser = db.data.users.find(u => u.email === email);
+  if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  db.data.users.push({ email, password: hashedPassword });
+  await db.write();
+
+  res.status(201).json({ message: 'User created' });
+});
+
+// POST user login
+app.post('/login', async (req, res) => {
+  await db.read();
+
+  if (!db.data.users) {
+    db.data.users = [];
+  }
+
+  const { email, password } = req.body;
+  const user = db.data.users.find(u => u.email === email);
+  if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+
+  const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token });
+});
+
+// ======================= RESTAURANT ROUTES =======================
 
 // GET all restaurants
 app.get('/restaurants', async (req, res) => {
@@ -55,7 +111,7 @@ app.get('/restaurants/random', async (req, res) => {
 });
 
 // POST add a single restaurant manually
-app.post('/restaurants', async (req, res) => {
+app.post('/restaurants', authenticateToken, async (req, res) => {
   const { name, category, location, price } = req.body
   if (!name || !category || !location || !price) {
     return res.status(400).json({ error: 'Name, location, category, and price are required' })
@@ -77,7 +133,7 @@ app.post('/restaurants', async (req, res) => {
 })
 
 // PATCH edit a restaurant
-app.patch('/restaurants/:id', async (req, res) => {
+app.patch('/restaurants/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body;
 
@@ -97,7 +153,7 @@ app.patch('/restaurants/:id', async (req, res) => {
   res.json(db.data.restaurants[index]);
 });
 
-app.delete('/restaurants/:id', async (req, res) => {
+app.delete('/restaurants/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   await db.read();
   db.data.restaurants = db.data.restaurants.filter(r => r.id !== id);

@@ -2,7 +2,7 @@ import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 
 const adapter = new JSONFile('db.json')
-const defaultData = { restaurants: [] }
+const defaultData = { restaurants: [], users:[] }
 
 const db = new Low(adapter, defaultData)
 

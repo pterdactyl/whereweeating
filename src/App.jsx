@@ -29,14 +29,20 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-cover bg-center overflow-hidden 
-    flex items-center justify-center" 
-    style={{ backgroundImage: "url('/images/main_background.jpg')" }}>
+    <div className="flat-background" 
+      style={{ backgroundImage: "url('/images/main_background.jpg')" }}>
 
       <Link to="/admin">
         <button className="bg-black hover:bg-purple-300 button 
-        text-white absolute top-4 right-1">
+        text-white absolute top-3 right-15">
           Admin Page
+        </button>
+      </Link>
+
+      <Link to="/login">
+        <button className="bg-black hover:bg-purple-300 button 
+        text-white absolute top-3 right-0">
+          Login
         </button>
       </Link>
       
