@@ -1,6 +1,7 @@
 import './App.css'
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import Navbar from './Navbar';
 
 function App() {
   const [randomRestaurant, setRandomRestaurant] = useState(null);
@@ -31,21 +32,7 @@ function App() {
   return (
     <div className="flat-background" 
       style={{ backgroundImage: "url('/images/main_background.jpg')" }}>
-
-      <Link to="/admin">
-        <button className="bg-black hover:bg-purple-300 button 
-        text-white absolute top-3 right-15">
-          Admin Page
-        </button>
-      </Link>
-
-      <Link to="/login">
-        <button className="bg-black hover:bg-purple-300 button 
-        text-white absolute top-3 right-0">
-          Login
-        </button>
-      </Link>
-      
+      <Navbar />
       <div className="content" style={{position:"absolute", top: '200px'}}>
         <h1 className="text-3xl font-bold mb-4">Where We Eating</h1>
         

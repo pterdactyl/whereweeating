@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import Navbar from './Navbar';
 
 function Admin() {
   const [restaurants, setRestaurants] = useState([]);
@@ -72,15 +72,8 @@ function Admin() {
 
   return (
     <div className="p-4">
+      <Navbar />
       <h2 className="text-2xl font-bold mb-4">Manage Restaurants</h2>
-
-      <Link to="/">
-        <button className="bg-black hover:bg-purple-300 button 
-          text-white absolute top-3 right-0">
-            Back
-        </button>
-      </Link>
-
       <ul>
         {restaurants.map(r => (
           <li key={r.id} 

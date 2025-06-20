@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import Navbar from './Navbar';
 
 function Login({ onSubmit }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Log in box
   return (
     <form
       style={{position:"relative"}}
@@ -32,6 +34,7 @@ function Login({ onSubmit }) {
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={e => setPassword(e.target.value)}
+            required
             className="border rounded ml-1 small-wide-input"
           />
           <button
@@ -55,6 +58,7 @@ function Login({ onSubmit }) {
   );
 }
 
+// Sign up box
 function Signup({ onSubmit }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -107,11 +111,11 @@ function Signup({ onSubmit }) {
           Confirm Password:
           <div className="relative w-full small-wide-input">
             <input
-              className="border rounded ml-1 small-wide-input"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               required
+              className="border rounded ml-1 small-wide-input"
             />
             <button
               type="button"
@@ -133,25 +137,28 @@ function Signup({ onSubmit }) {
 }
 
 export default function AuthPage() {
-    const [isLogin, setIsLogin] = useState(true);
-    const handleLogin = async (data) => {
-        try {
-            const res = await fetch("http://localhost:5000/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(data),
-            });
+  const navigate = useNavigate();
+  const [isLogin, setIsLogin] = useState(true);
+  const handleLogin = async (data) => {
+      try {
+          const res = await fetch("http://localhost:5000/login", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+              },
+              body: JSON.stringify(data),
+          });
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                alert("Login failed: " + errorData.message);
-                return;
-            }
+          if (!res.ok) {
+              const errorData = await res.json();
+              alert("Login failed: " + errorData.message);
+              return;
+          }
         
-            const result = await res.json();
-            console.log("Login succesful:", result);
+          const result = await res.json();
+          localStorage.setItem("token", result.token);
+          navigate("/", { replace: true }); 
+          console.log("Login succesful:", result);
         } catch (error) {
             console.error("Network or server error:", error);
             alert("Something went wrong, please try again later.");
@@ -182,17 +189,12 @@ export default function AuthPage() {
         }
     };
 
+  // Entire page
   return (
     <div
       className="flat-background"
       style={{ backgroundImage: "url('/images/default.jpg')" }}>
-      
-      <Link to="/">
-        <button className="bg-black hover:bg-purple-300 button 
-        text-white absolute top-3 right-0">
-          Back
-        </button>
-      </Link>
+      <Navbar />
 
       <div 
         className="fixed top-4 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
