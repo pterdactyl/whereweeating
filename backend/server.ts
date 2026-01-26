@@ -36,36 +36,25 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
 
 // POST user signup
 app.post('/api/signup', async (req, res) => {
-  await db.read();
-
-  if (!db.data.users) {
-    db.data.users = [];
-  }
-
   const { email, password } = req.body;
-  const existingUser = db.data.users.find(u => u.email === email);
+
+  const existingUser = await db.users.getUserByEmail(email);
   if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  db.data.users.push({ email, password: hashedPassword });
-  await db.write();
+  await db.users.createUser(email, hashedPassword);
 
   res.status(201).json({ message: 'User created' });
 });
 
 // POST user login
 app.post('/api/login', async (req, res) => {
-  await db.read();
-
-  if (!db.data.users) {
-    db.data.users = [];
-  }
 
   const { email, password } = req.body;
-  const user = db.data.users.find(u => u.email === email);
+  const user = await db.users.getUserByEmail(email);
   if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
-  const isMatch = await bcrypt.compare(password, user.password);
+  const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
   const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
@@ -76,14 +65,14 @@ app.post('/api/login', async (req, res) => {
 
 // GET all restaurants
 app.get('/api/restaurants', async (req, res) => {
-  await db.read()
-  res.json(db.data.restaurants)
+  const restaurants = await db.restaurants.getRestaurants();
+  res.json(restaurants);
 })
 
 // GET one random restaurant
 app.get('/api/restaurants/random', async (req, res) => {
-  await db.read();
-  let filtered = db.data.restaurants;
+
+  let filtered = await db.restaurants.getRestaurants();
 
   const category =
     typeof req.query.category === 'string' ? req.query.category : undefined;
@@ -128,47 +117,26 @@ app.post('/api/restaurants', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'Name, location, category, and price are required' })
   }
 
-  await db.read()
-
-  const newRestaurant = {
-    id: `manual-${Date.now()}`, 
-    name,
-    category,
-    location,
-    price,
-  }
-  db.data.restaurants.push(newRestaurant)
-  await db.write()
-
-  res.status(201).json(newRestaurant)
+  const created = await db.restaurants.addRestaurant({ name, category, location, price })
+  res.status(201).json(created)
 })
 
 // PATCH edit a restaurant
 app.patch('/api/restaurants/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const updatedData = req.body;
 
-  await db.read();
-  const index = db.data.restaurants.findIndex(r => r.id === id);
-
-  if (index === -1) {
+  try {
+    const updated = await db.restaurants.updateRestaurant(id, updatedData);
+    res.json(updated);
+  } catch {
     return res.status(404).json({ error: 'Restaurant not found' });
   }
-
-  db.data.restaurants[index] = {
-    ...db.data.restaurants[index],
-    ...updatedData,
-  };
-
-  await db.write();
-  res.json(db.data.restaurants[index]);
 });
 
 app.delete('/api/restaurants/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  await db.read();
-  db.data.restaurants = db.data.restaurants.filter(r => r.id !== id);
-  await db.write();
+  const id = req.params.id as string;
+  await db.restaurants.deleteRestaurant(id);
   res.status(204).end();
 });
 

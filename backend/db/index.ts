@@ -1,12 +1,5 @@
-import { Low } from 'lowdb'
-import { JSONFile } from 'lowdb/node'
-import path from "path";
-import { fileURLToPath } from "url"
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-const dbFile = path.join(__dirname, "/db.json")
+import 'dotenv/config'
+import { createClient } from '@supabase/supabase-js'
 
 export type Restaurant = {
   id: string
@@ -17,25 +10,80 @@ export type Restaurant = {
 }
 
 export type User = {
+  id: string
   email: string
-  password: string
+  password_hash: string
 }
 
-export type DbData = {
-  restaurants: Restaurant[]
-  users: User[]
+const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in backend .env')
 }
 
-const adapter = new JSONFile<DbData>(dbFile)
-const defaultData: DbData = { restaurants: [], users: [] }
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-const db = new Low<DbData>(adapter, defaultData)
+async function getRestaurants(): Promise<Restaurant[]> {
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('id,name,category,location,price')
 
-await db.read()
-
-if (!db.data) {
-  db.data = defaultData
-  await db.write()
+  if (error) throw error
+  return (data ?? []) as Restaurant[]
 }
 
-export default db
+async function addRestaurant(input: Omit<Restaurant, 'id'>): Promise<Restaurant> {
+  const { data, error } = await supabase
+    .from('restaurants')
+    .insert(input)
+    .select('id,name,category,location,price')
+    .single()
+
+  if (error) throw error
+  return data as Restaurant
+}
+
+async function updateRestaurant(id: string, patch: Partial<Omit<Restaurant, 'id'>>): Promise<Restaurant> {
+  const { data, error } = await supabase
+    .from('restaurants')
+    .update(patch)
+    .eq('id', id)
+    .select('id,name,category,location,price')
+    .single()
+
+  if (error) throw error
+  return data as Restaurant
+}
+
+async function deleteRestaurant(id: string): Promise<void> {
+  const { error } = await supabase.from('restaurants').delete().eq('id', id)
+  if (error) throw error
+}
+
+async function getUserByEmail(email: string): Promise<User | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id,email,password_hash')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (error) throw error
+  return (data ?? null) as User | null
+}
+
+async function createUser(email: string, password_hash: string): Promise<User> {
+  const { data, error } = await supabase
+    .from('users')
+    .insert({ email, password_hash })
+    .select('id,email,password_hash')
+    .single()
+
+  if (error) throw error
+  return data as User
+}
+
+export default {
+  restaurants: { getRestaurants, addRestaurant, updateRestaurant, deleteRestaurant },
+  users: { getUserByEmail, createUser },
+}
