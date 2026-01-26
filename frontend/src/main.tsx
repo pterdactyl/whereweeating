@@ -1,13 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import './index.css';
-import App from './App.jsx';
-import Admin from './Admin.jsx';
-import AuthPage from './AuthPage.jsx';
-import Navbar from './Navbar';
+import './styles/index.css';
+import App from './pages/Home.js';
+import Admin from './pages/Admin.jsx';
+import AuthPage from './pages/Auth.jsx';
+import Navbar from './components/Navbar.jsx';
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Router>
       <Routes>

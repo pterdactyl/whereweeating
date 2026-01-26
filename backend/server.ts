@@ -1,30 +1,33 @@
-import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
-import axios from 'axios'
-import db from './db.mjs'
-import bcrypt from 'bcrypt';
+import db from './db/index.js'
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import express, { NextFunction, Request, Response } from 'express';
 
 dotenv.config()
 
 const app = express()
+app.use((req, res, next) => {
+  console.log("HIT:", req.method, req.path, "Origin:", req.headers.origin);
+  next();
+});
 const PORT = process.env.PORT || 5000
 
 const JWT_SECRET = process.env.JWT_SECRET || 'yourSecretKey';
 
-app.use(cors())
+app.use(cors());
 app.use(express.json())
 
-function authenticateToken(req, res, next) {
+function authenticateToken(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) return res.status(401).json({ message: 'Token required' });
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) return res.status(403).json({ message: 'Invalid token' });
-    req.user = user;
+    (req as any).user = decoded;
     next();
   });
 }
@@ -32,7 +35,7 @@ function authenticateToken(req, res, next) {
 // ======================= AUTHENTICATION ROUTES =======================
 
 // POST user signup
-app.post('/signup', async (req, res) => {
+app.post('/api/signup', async (req, res) => {
   await db.read();
 
   if (!db.data.users) {
@@ -51,7 +54,7 @@ app.post('/signup', async (req, res) => {
 });
 
 // POST user login
-app.post('/login', async (req, res) => {
+app.post('/api/login', async (req, res) => {
   await db.read();
 
   if (!db.data.users) {
@@ -72,17 +75,25 @@ app.post('/login', async (req, res) => {
 // ======================= RESTAURANT ROUTES =======================
 
 // GET all restaurants
-app.get('/restaurants', async (req, res) => {
+app.get('/api/restaurants', async (req, res) => {
   await db.read()
   res.json(db.data.restaurants)
 })
 
 // GET one random restaurant
-app.get('/restaurants/random', async (req, res) => {
+app.get('/api/restaurants/random', async (req, res) => {
   await db.read();
   let filtered = db.data.restaurants;
 
-  const { category, price, location } = req.query;
+  const category =
+    typeof req.query.category === 'string' ? req.query.category : undefined;
+
+  const price =
+    typeof req.query.price === 'string' ? req.query.price : undefined;
+
+  const location =
+    typeof req.query.location === 'string' ? req.query.location : undefined;
+
 
   if (category) {
   const searchTerm = category.toLowerCase();
@@ -111,7 +122,7 @@ app.get('/restaurants/random', async (req, res) => {
 });
 
 // POST add a single restaurant manually
-app.post('/restaurants', authenticateToken, async (req, res) => {
+app.post('/api/restaurants', authenticateToken, async (req, res) => {
   const { name, category, location, price } = req.body
   if (!name || !category || !location || !price) {
     return res.status(400).json({ error: 'Name, location, category, and price are required' })
@@ -133,7 +144,7 @@ app.post('/restaurants', authenticateToken, async (req, res) => {
 })
 
 // PATCH edit a restaurant
-app.patch('/restaurants/:id', authenticateToken, async (req, res) => {
+app.patch('/api/restaurants/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body;
 
@@ -153,7 +164,7 @@ app.patch('/restaurants/:id', authenticateToken, async (req, res) => {
   res.json(db.data.restaurants[index]);
 });
 
-app.delete('/restaurants/:id', authenticateToken, async (req, res) => {
+app.delete('/api/restaurants/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   await db.read();
   db.data.restaurants = db.data.restaurants.filter(r => r.id !== id);

@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import Navbar from './Navbar';
+import Navbar from '../components/Navbar';
+import type { Restaurant } from '../types/Restaurant';
+
 
 function Admin() {
-  const [restaurants, setRestaurants] = useState([]);
-  const [newData, setNewData] = useState({ name: '', category: '', 
-    location: '', price: '' });
-  const [editing, setEditing] = useState(null);
-  const itemRefs = useRef({});
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [editing, setEditing] = useState<Restaurant | null>(null);
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [newData, setNewData] = useState<{
+    name: string;
+    category: string;
+    location: string;
+    price: string;
+  }>({
+    name: '',
+    category: '',
+    location: '',
+    price: ''
+  });
 
   useEffect(() => {
-    fetch("http://localhost:5000/restaurants")
+    fetch("/api/restaurants")
       .then(res => res.json())
       .then(setRestaurants);
   }, []);
@@ -17,7 +28,7 @@ function Admin() {
 
   const handleAdd = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch("http://localhost:5000/restaurants", {
+    const res = await fetch("/api/restaurants", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
@@ -31,9 +42,9 @@ function Admin() {
     setNewData({ name: '', category: '', location: '', price: '$' });
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: Restaurant["id"]) => {
     const token = localStorage.getItem('token');
-    await fetch(`http://localhost:5000/restaurants/${id}`, {
+    await fetch(`/api/restaurants/${id}`, {
       method: "DELETE",
       headers: {
         "Authorization": `Bearer ${token}`
@@ -42,10 +53,11 @@ function Admin() {
     setRestaurants(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleEditSubmit = async (e) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editing) return;
     const token = localStorage.getItem('token');
-    const res = await fetch(`http://localhost:5000/restaurants/${editing.id}`, {
+    const res = await fetch(`/api/restaurants/${editing.id}`, {
       method: "PATCH",
       headers: { 
         "Content-Type": "application/json",
@@ -65,7 +77,7 @@ function Admin() {
     setEditing(null); 
   }; 
 
-  const handleEditClick = (r) => {
+  const handleEditClick = (r: Restaurant) => {
     console.log("Editing ID:", r.id);
     setEditing(r);
   };
@@ -77,8 +89,10 @@ function Admin() {
       <ul>
         {restaurants.map(r => (
           <li key={r.id} 
-          ref={el => itemRefs.current[r.id] = el
-          }
+          ref={(el) => {
+            itemRefs.current[r.id] = el;
+          }}
+
           className="mb-2">
             {editing?.id === r.id ? (
               <div className="space-x-2">

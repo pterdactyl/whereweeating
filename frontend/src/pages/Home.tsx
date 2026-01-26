@@ -1,10 +1,11 @@
-import './App.css'
+import '../styles/App.css'
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Navbar from './Navbar';
+import Navbar from '../components/Navbar';
+import { Restaurant } from '../types/Restaurant';
 
 function App() {
-  const [randomRestaurant, setRandomRestaurant] = useState(null);
+  const [randomRestaurant, setRandomRestaurant] = useState<Restaurant | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedPrice, setSelectedPrice] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
@@ -17,7 +18,7 @@ function App() {
     if (selectedLocation) params.append('location', selectedLocation);
 
     try {
-      const res = await fetch(`http://localhost:5000/restaurants/random?${params.toString()}`);
+      const res = await fetch(`/api/restaurants/random?${params.toString()}`);
       if (!res.ok) {
         setRandomRestaurant(null);
         return;

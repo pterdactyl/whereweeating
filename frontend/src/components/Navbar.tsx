@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Navbar() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (ref.current && !ref.current.contains(event.target)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }

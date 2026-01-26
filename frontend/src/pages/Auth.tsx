@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Navbar from './Navbar';
+import Navbar from '../components/Navbar';
 
-function Login({ onSubmit }) {
+type AuthPayload = {
+  email: string;
+  password: string;
+};
+
+type AuthFormProps = {
+  onSubmit: (data: AuthPayload) => void | Promise<void>;
+};
+
+function Login({ onSubmit }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -59,7 +68,7 @@ function Login({ onSubmit }) {
 }
 
 // Sign up box
-function Signup({ onSubmit }) {
+function Signup({ onSubmit }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -139,9 +148,9 @@ function Signup({ onSubmit }) {
 export default function AuthPage() {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
-  const handleLogin = async (data) => {
+  const handleLogin = async (data: AuthPayload) => {
       try {
-          const res = await fetch("http://localhost:5000/login", {
+          const res = await fetch("/api/login", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
@@ -165,9 +174,9 @@ export default function AuthPage() {
         }
     };
 
-  const handleSignup = async (data) => {
+  const handleSignup = async (data: AuthPayload) => {
         try {
-            const res = await fetch("http://localhost:5000/signup", {
+            const res = await fetch("/api/signup", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
