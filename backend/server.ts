@@ -33,6 +33,10 @@ const JWT_SECRET_STR = process.env.JWT_SECRET;
 if (!JWT_SECRET_STR) throw new Error("JWT_SECRET is not set");
 const JWT_SECRET: Secret = JWT_SECRET_STR;
 
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 const ADMIN_EMAILS = new Set(
   (process.env.ADMIN_EMAILS ?? "")
     .split(",")
