@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Navbar from '../components/Navbar';
 import type { Restaurant } from '../types/Restaurant';
-
+import { API_BASE } from "../lib/api";
 
 function ManageRestaurants() {
 
@@ -28,7 +28,7 @@ function ManageRestaurants() {
   });
 
   useEffect(() => {
-    fetch("/api/restaurants")
+    fetch(`${API_BASE}/api/restaurants`)
       .then(res => res.json())
       .then(setRestaurants);
   }, []);
@@ -36,7 +36,7 @@ function ManageRestaurants() {
 
   const handleAdd = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch("/api/restaurants", {
+    const res = await fetch(`${API_BASE}/api/restaurants`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
@@ -52,7 +52,7 @@ function ManageRestaurants() {
 
   const handleDelete = async (id: Restaurant["id"]) => {
     const token = localStorage.getItem('token');
-    await fetch(`/api/restaurants/${id}`, {
+    await fetch(`${API_BASE}/api/restaurants/${id}`, {
       method: "DELETE",
       headers: {
         "Authorization": `Bearer ${token}`
@@ -65,7 +65,7 @@ function ManageRestaurants() {
     e.preventDefault();
     if (!editing) return;
     const token = localStorage.getItem('token');
-    const res = await fetch(`/api/restaurants/${editing.id}`, {
+    const res = await fetch(`${API_BASE}/api/restaurants/${editing.id}`, {
       method: "PATCH",
       headers: { 
         "Content-Type": "application/json",

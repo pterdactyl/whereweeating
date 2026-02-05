@@ -2,8 +2,9 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import db from './db/index.js'
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { Secret } from 'jsonwebtoken';
 import express, { NextFunction, Request, Response } from 'express';
+import rateLimit from "express-rate-limit";
 
 dotenv.config()
 
@@ -14,11 +15,50 @@ app.use((req, res, next) => {
 });
 const PORT = process.env.PORT || 5000
 
-const JWT_SECRET = process.env.JWT_SECRET || 'yourSecretKey';
-const ADMIN_EMAILS = new Set(["admin@test.com"]);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
 
-app.use(cors());
-app.use(express.json())
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return cb(null, true);
+    }
+
+    return cb(new Error("Not allowed by CORS"));
+  }
+}));
+
+app.use(express.json({ limit: "50kb" }));
+
+const JWT_SECRET_STR = process.env.JWT_SECRET;
+if (!JWT_SECRET_STR) throw new Error("JWT_SECRET is not set");
+const JWT_SECRET: Secret = JWT_SECRET_STR;
+
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean)
+);
+if (ADMIN_EMAILS.size === 0) console.warn("ADMIN_EMAILS is empty");
+
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const addRestaurantLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function authenticateToken(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
@@ -46,7 +86,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 // ======================= AUTHENTICATION ROUTES =======================
 
 // POST user signup
-app.post('/api/signup', async (req, res) => {
+app.post('/api/signup', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   const existingUser = await db.users.getUserByEmail(email);
@@ -62,7 +102,7 @@ app.post('/api/signup', async (req, res) => {
 });
 
 // POST user login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
 
   const { email, password } = req.body;
   const user = await db.users.getUserByEmail(email);
@@ -125,7 +165,7 @@ app.get('/api/restaurants/random', async (req, res) => {
 });
 
 // POST add a single restaurant manually
-app.post('/api/restaurants', authenticateToken, async (req, res) => {
+app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req, res) => {
   const { name, category, location, price } = req.body
   if (!name || !category || !location || !price) {
     return res.status(400).json({ error: 'Name, location, category, and price are required' })

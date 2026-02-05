@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { API_BASE } from "../lib/api";
 
 type AuthPayload = {
   email: string;
@@ -151,7 +152,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const handleLogin = async (data: AuthPayload) => {
       try {
-          const res = await fetch("/api/login", {
+          const res = await fetch(`${API_BASE}//api/login`, {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
@@ -178,7 +179,7 @@ export default function AuthPage() {
 
   const handleSignup = async (data: AuthPayload) => {
         try {
-            const res = await fetch("/api/signup", {
+            const res = await fetch(`${API_BASE}//api/signup`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
