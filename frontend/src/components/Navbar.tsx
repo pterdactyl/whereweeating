@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { FaUserCircle } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function Navbar() {
   const [loggedIn, setLoggedIn] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -23,13 +24,13 @@ export default function Navbar() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     setLoggedIn(!!token);
-  }, []);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("email");
     setLoggedIn(false);
     navigate("/");
-    window.location.reload();
   };
 
   return (
@@ -42,11 +43,11 @@ export default function Navbar() {
         <FaUserCircle />
       </button>
       {open && (
-        <div className="absolute right-1 w-20 bg-white rounded shadow-md border text-black">
+        <div className="absolute right-1 w-28 bg-white rounded shadow-md border text-black">
           <ul className="flex flex-col">
             <li
               className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-              onClick={() => navigate('/')}
+              onClick={() => { setOpen(false); navigate('/'); }}
             >
             Home
             </li>
@@ -54,7 +55,7 @@ export default function Navbar() {
               <>
                 <li
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => navigate('/login')}
+                  onClick={() => { setOpen(false); navigate('/login'); }}
                 >
                   Login
                 </li>
@@ -63,9 +64,9 @@ export default function Navbar() {
               <>
                 <li
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => navigate('/admin')}
+                  onClick={() => { setOpen(false); navigate('/restaurants'); }}
                 >
-                  Admin
+                  Restaurants
                 </li>
                 <li
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer"

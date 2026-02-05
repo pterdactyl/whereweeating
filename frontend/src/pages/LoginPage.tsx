@@ -101,6 +101,7 @@ function Signup({ onSubmit }: AuthFormProps) {
           Password:
           <div className="relative w-full small-wide-input">
             <input
+              required
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -166,6 +167,7 @@ export default function AuthPage() {
         
           const result = await res.json();
           localStorage.setItem("token", result.token);
+          localStorage.setItem("email", result.email ?? data.email);
           navigate("/", { replace: true }); 
           console.log("Login succesful:", result);
         } catch (error) {
@@ -191,6 +193,9 @@ export default function AuthPage() {
             }
         
             const result = await res.json();
+            localStorage.setItem("token", result.token);
+            localStorage.setItem("email", result.email ?? data.email);
+            navigate("/", { replace: true });
             console.log("Signup successful:", result);
         } catch (error) {
             console.error("Network or server error:", error);

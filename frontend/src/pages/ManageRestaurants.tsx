@@ -3,7 +3,15 @@ import Navbar from '../components/Navbar';
 import type { Restaurant } from '../types/Restaurant';
 
 
-function Admin() {
+function ManageRestaurants() {
+
+  const ADMIN_EMAILS = ["admin@test.com"];
+  const token = localStorage.getItem("token");
+  const userEmail = localStorage.getItem("email");
+
+  const isLoggedIn = !!token;
+  const isAdmin = !!userEmail && ADMIN_EMAILS.includes(userEmail);
+
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [editing, setEditing] = useState<Restaurant | null>(null);
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
@@ -139,27 +147,33 @@ function Admin() {
             ) : (
               <div>
                 <strong>{r.name}</strong> - {r.category}, {r.location}, {r.price}
-                <button
-                  onClick={() => handleEditClick(r)}
-                  className="bg-blue-200 hover:bg-blue-300 button ml-2"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(r.id)}
-                  className="bg-red-200 hover:bg-red-300 button"
-                >
-                  Delete
-                </button>
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => handleEditClick(r)}
+                      className="bg-blue-200 hover:bg-blue-300 button ml-2"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r.id)}
+                      className="bg-red-200 hover:bg-red-300 button"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </li>
         ))}
       </ul>
 
-      <div className="mb-4">
-        <input placeholder="Name" className="border border-gray-400 p-1 rounded" 
+      {isLoggedIn ? (
+        <div className="mb-4">
+          <input placeholder="Name" className="border border-gray-400 p-1 rounded" 
         value={newData.name} onChange={e => setNewData({ ...newData, name: e.target.value })} />
         <input placeholder="Category" className="border border-gray-400 p-1 rounded"
         value={newData.category} onChange={e => 
@@ -180,11 +194,15 @@ function Admin() {
         <button className="bg-purple-200 hover:bg-purple-300 button"
         type="button"
         onClick={handleAdd}>Add</button>
-
-      </div>
+        </div>
+      ) : (
+        <div className="text-sm text-gray-600 mt-4">
+          Log in to add restaurants.
+        </div>
+      )}
 
     </div>
   );
 }
 
-export default Admin;
+export default ManageRestaurants;

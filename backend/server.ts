@@ -15,6 +15,7 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 5000
 
 const JWT_SECRET = process.env.JWT_SECRET || 'yourSecretKey';
+const ADMIN_EMAILS = new Set(["admin@test.com"]);
 
 app.use(cors());
 app.use(express.json())
@@ -32,6 +33,16 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
   });
 }
 
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user as { email?: string } | undefined;
+
+  if (!user?.email || !ADMIN_EMAILS.has(user.email)) {
+    return res.status(403).json({ message: "Admin only" });
+  }
+
+  next();
+}
+
 // ======================= AUTHENTICATION ROUTES =======================
 
 // POST user signup
@@ -42,9 +53,12 @@ app.post('/api/signup', async (req, res) => {
   if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  await db.users.createUser(email, hashedPassword);
+  const newUser = await db.users.createUser(email, hashedPassword);
+  const token = jwt.sign({ userID: newUser.id, email: newUser.email}, 
+    JWT_SECRET, 
+    { expiresIn: '1h' });
 
-  res.status(201).json({ message: 'User created' });
+  res.status(201).json({ token, email: newUser.email, message: 'User created' });
 });
 
 // POST user login
@@ -57,8 +71,8 @@ app.post('/api/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-  const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token });
+  const token = jwt.sign({ userID: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token, email: user.email });
 });
 
 // ======================= RESTAURANT ROUTES =======================
@@ -122,7 +136,7 @@ app.post('/api/restaurants', authenticateToken, async (req, res) => {
 })
 
 // PATCH edit a restaurant
-app.patch('/api/restaurants/:id', authenticateToken, async (req, res) => {
+app.patch('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, res) => {
   const id = req.params.id as string;
   const updatedData = req.body;
 
@@ -134,7 +148,7 @@ app.patch('/api/restaurants/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/restaurants/:id', authenticateToken, async (req, res) => {
+app.delete('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, res) => {
   const id = req.params.id as string;
   await db.restaurants.deleteRestaurant(id);
   res.status(204).end();
