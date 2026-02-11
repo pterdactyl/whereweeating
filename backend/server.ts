@@ -15,6 +15,11 @@ app.use((req, res, next) => {
 });
 const PORT = process.env.PORT || 5000
 
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -23,7 +28,7 @@ app.use(cors({
       return cb(null, true);
     }
 
-    return cb(new Error("Not allowed by CORS"));
+    return cb(null, false);
   }
 }));
 
@@ -44,11 +49,6 @@ const ADMIN_EMAILS = new Set(
     .filter(Boolean)
 );
 if (ADMIN_EMAILS.size === 0) console.warn("ADMIN_EMAILS is empty");
-
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[];
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
