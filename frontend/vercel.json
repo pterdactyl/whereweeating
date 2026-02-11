@@ -1,9 +1,0 @@
-{
-  "redirects": [
-    {
-      "source": "/__proof",
-      "destination": "https://example.com",
-      "permanent": false
-    }
-  ]
-}
