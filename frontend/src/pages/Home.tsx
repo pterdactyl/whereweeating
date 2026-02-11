@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Restaurant } from '../types/Restaurant';
-import { API_BASE } from "../lib/api";
+import { apiUrl } from "../lib/api";
 
 function App() {
   const [randomRestaurant, setRandomRestaurant] = useState<Restaurant | null>(null);
@@ -19,7 +19,7 @@ function App() {
     if (selectedLocation) params.append('location', selectedLocation);
 
     try {
-      const res = await fetch(`${API_BASE}/api/restaurants/random?${params.toString()}`);
+      const res = await fetch(apiUrl("/api/restaurants/random") + "?" + params.toString());
       if (!res.ok) {
         setRandomRestaurant(null);
         return;
