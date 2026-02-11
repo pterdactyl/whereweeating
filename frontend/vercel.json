@@ -1,8 +1,9 @@
 {
-  "rewrites": [
+  "redirects": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://whereweating.onrender.com/api/$1"
+      "source": "/__proof",
+      "destination": "https://example.com",
+      "permanent": false
     }
   ]
 }
