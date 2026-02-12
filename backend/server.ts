@@ -170,25 +170,29 @@ app.get('/api/restaurants/random', async (req, res) => {
 
 // POST add a single restaurant manually
 app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req, res) => {
-  const { name, category, location, price } = req.body
-  if (!name || !category || !location || !price) {
-    return res.status(400).json({ error: 'Name, location, category, and price are required' })
-  }
-
-  const created = await db.restaurants.addRestaurant({ name, category, location, price })
-  res.status(201).json(created)
-})
-
-// PATCH edit a restaurant
-app.patch('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, res) => {
-  const id = req.params.id as string;
-  const updatedData = req.body;
-
   try {
-    const updated = await db.restaurants.updateRestaurant(id, updatedData);
-    res.json(updated);
-  } catch {
-    return res.status(404).json({ error: 'Restaurant not found' });
+    const { name, category, location, price } = req.body;
+
+    if (!name || !category || !location || !price) {
+      return res.status(400).json({ message: 'Name, location, category, and price are required' });
+    }
+
+    const created = await db.restaurants.addRestaurant({
+      name: String(name).trim(),
+      category: String(category).trim(),
+      location: String(location).trim(),
+      price: String(price).trim(),
+    });
+
+    return res.status(201).json(created);
+  } catch (err: any) {
+    
+    if (err?.code === '23505') {
+      return res.status(409).json({ message: 'Restaurant already exists.' });
+    }
+
+    console.error('Add restaurant error:', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

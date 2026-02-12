@@ -15,6 +15,7 @@ function ManageRestaurants() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [editing, setEditing] = useState<Restaurant | null>(null);
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [errorMsg, setErrorMsg] = useState<string>("");
   const [newData, setNewData] = useState<{
     name: string;
     category: string;
@@ -35,19 +36,44 @@ function ManageRestaurants() {
 
 
   const handleAdd = async () => {
-    const token = localStorage.getItem('token');
-    const res = await fetch(apiUrl(`/api/restaurants`), {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${token}`
-       },
-      body: JSON.stringify(newData)
-    });
+    try {
+      setErrorMsg("");
 
-    const data = await res.json();
-    setRestaurants(prev => [...prev, data]);
-    setNewData({ name: '', category: '', location: '', price: '$' });
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(apiUrl(`/api/restaurants`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newData),
+      });
+
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = { message: text };
+      }
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setErrorMsg(data?.message || "Restaurant already exists.");
+        } else if (res.status === 400) {
+          setErrorMsg(data?.message || "Missing required fields.");
+        } else {
+          setErrorMsg(data?.message || "Failed to add restaurant.");
+        }
+        return;
+      }
+
+      setRestaurants(prev => [...prev, data]);
+      setNewData({ name: "", category: "", location: "", price: "$" });
+    } catch (e) {
+      setErrorMsg("Network error. Try again.");
+    }
   };
 
   const handleDelete = async (id: Restaurant["id"]) => {
@@ -191,6 +217,13 @@ function ManageRestaurants() {
           <option value="$$$$">$$$$</option>
           <option value="N/A">N/A</option>
         </select>
+
+        {errorMsg && (
+          <div className="border border-red-400 bg-red-50 text-red-600 px-3 py-2 rounded text-sm">
+            {errorMsg}
+          </div>
+        )}
+        
         <button className="bg-purple-200 hover:bg-purple-300 button"
         type="button"
         onClick={handleAdd}>Add</button>
