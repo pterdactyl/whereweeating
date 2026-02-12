@@ -186,7 +186,7 @@ app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req
 
     return res.status(201).json(created);
   } catch (err: any) {
-    
+
     if (err?.code === '23505') {
       return res.status(409).json({ message: 'Restaurant already exists.' });
     }
@@ -200,6 +200,14 @@ app.delete('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, 
   const id = req.params.id as string;
   await db.restaurants.deleteRestaurant(id);
   res.status(204).end();
+});
+
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("GLOBAL ERROR HANDLER:", err);
+  res.status(err?.status || 500).json({
+    message: err?.message || "Internal Server Error",
+    code: err?.code,
+  });
 });
 
 app.listen(PORT, () => {
