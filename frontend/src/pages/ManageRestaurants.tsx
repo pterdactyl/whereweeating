@@ -28,7 +28,7 @@ function ManageRestaurants() {
   });
 
   useEffect(() => {
-    fetch(apiUrl("/api/restaurants"))
+    fetch(apiUrl(`/api/restaurants`))
       .then(res => res.json())
       .then(setRestaurants);
   }, []);
@@ -36,7 +36,7 @@ function ManageRestaurants() {
 
   const handleAdd = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch(apiUrl("/api/restaurants"), {
+    const res = await fetch(apiUrl(`/api/restaurants`), {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
@@ -52,7 +52,7 @@ function ManageRestaurants() {
 
   const handleDelete = async (id: Restaurant["id"]) => {
     const token = localStorage.getItem('token');
-    await fetch(apiUrl("/api/restaurants/${id}"), {
+    await fetch(apiUrl(`/api/restaurants/${id}`), {
       method: "DELETE",
       headers: {
         "Authorization": `Bearer ${token}`
@@ -65,7 +65,7 @@ function ManageRestaurants() {
     e.preventDefault();
     if (!editing) return;
     const token = localStorage.getItem('token');
-    const res = await fetch(apiUrl("/api/restaurants/${editing.id}"), {
+    const res = await fetch(apiUrl(`/api/restaurants/${editing.id}`), {
       method: "PATCH",
       headers: { 
         "Content-Type": "application/json",

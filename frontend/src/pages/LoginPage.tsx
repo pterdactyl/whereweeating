@@ -152,7 +152,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const handleLogin = async (data: AuthPayload) => {
       try {
-          const res = await fetch(apiUrl("/api/login"), {
+          const res = await fetch(apiUrl(`/api/login`), {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
@@ -179,7 +179,7 @@ export default function AuthPage() {
 
   const handleSignup = async (data: AuthPayload) => {
         try {
-            const res = await fetch(apiUrl("/api/signup"), {
+            const res = await fetch(apiUrl(`/api/signup`), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

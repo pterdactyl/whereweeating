@@ -19,7 +19,7 @@ function App() {
     if (selectedLocation) params.append('location', selectedLocation);
 
     try {
-      const res = await fetch(apiUrl("/api/restaurants/random") + "?" + params.toString());
+      const res = await fetch(apiUrl(`/api/restaurants/random`) + "?" + params.toString());
       if (!res.ok) {
         setRandomRestaurant(null);
         return;
