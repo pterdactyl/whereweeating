@@ -87,8 +87,7 @@ function ManageRestaurants() {
     setRestaurants(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEditSubmit = async () => {
     if (!editing) return;
     const token = localStorage.getItem('token');
     const res = await fetch(apiUrl(`/api/restaurants/${editing.id}`), {

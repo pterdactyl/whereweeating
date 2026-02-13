@@ -196,6 +196,44 @@ app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req
   }
 });
 
+app.patch('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const { name, category, location, price } = req.body;
+
+      if (!name || !category || !location || !price) {
+        return res.status(400).json({
+          message: 'Name, location, category, and price are required'
+        });
+      }
+
+      const updated = await db.restaurants.updateRestaurant(id, {
+        name: String(name).trim(),
+        category: String(category).trim(),
+        location: String(location).trim(),
+        price: String(price).trim(),
+      });
+
+      return res.json(updated);
+
+    } catch (err: any) {
+
+      if (err?.code === '23505') {
+        return res.status(409).json({
+          message: 'Restaurant with these details already exists.'
+        });
+      }
+
+      console.error('Update restaurant error:', err);
+
+      return res.status(500).json({
+        message: err?.message || 'Server error',
+        code: err?.code,
+      });
+    }
+  });
+
+
 app.delete('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, res) => {
   const id = req.params.id as string;
   await db.restaurants.deleteRestaurant(id);
