@@ -168,6 +168,11 @@ function ManageRestaurants() {
                 >
                   Cancel
                 </button>
+                {errorMsg && (
+                  <div className="border border-red-400 bg-red-50 text-red-600 px-3 py-2 rounded text-sm">
+                    {errorMsg}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
