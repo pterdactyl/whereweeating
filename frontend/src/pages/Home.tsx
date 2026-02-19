@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
+import Multiselect from '../components/Multiselect';
 
 function App() {
   const { showToast } = useToast();
@@ -117,8 +118,9 @@ function App() {
   const filteredCount = getFilteredRestaurants().length;
 
   return (
-    <div className="flat-background" 
-      style={{ backgroundImage: "url('/images/main_background.jpg')" }}>
+    <div className="page" >
+      <div className="page-bg" />
+      <div className="page-content">
       <Navbar />
 
       <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
@@ -133,7 +135,6 @@ function App() {
             <div className="content w-full max-w-md">
               <h1 className="text-3xl sm:text-4xl font-bold mb-6">Where We Eating</h1>
               
-              {/* Filter count badge */}
               {hasActiveFilters && (
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm text-gray-600">
@@ -149,99 +150,38 @@ function App() {
               )}
               
               <div className="flex flex-col gap-4 my-1 w-full text-left">
-                <div>
-                  <label className="text-sm font-medium block mb-2">Category</label>
-                  {categoryOptions.length === 0 ? (
-                    <div className="text-sm text-gray-500 p-2 bg-white/90 rounded-md border border-gray-200">
-                      No categories available
-                    </div>
-                  ) : (
-                    <div
-                      className="flex flex-wrap gap-2 overflow-y-auto border border-gray-200 rounded-md p-2 bg-white/90"
-                      style={{ maxHeight: '5.5rem' }}
-                    >
-                      {categoryOptions.map(c => {
-                        const isSelected = selectedCategories.some(
-                          sc => sc.toLowerCase() === c.toLowerCase()
-                        );
-                        return (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() =>
-                              setSelectedCategories(prev =>
-                                isSelected
-                                  ? prev.filter(sc => sc.toLowerCase() !== c.toLowerCase())
-                                  : [...prev, c]
-                              )
-                            }
-                            className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-                              isSelected
-                                ? 'bg-black text-white shadow-md'
-                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                            }`}
-                          >
-                            {c}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <Multiselect
+                  label="Category"
+                  options={categoryOptions}
+                  selected={selectedCategories}
+                  onChange={setSelectedCategories}
+                  placeholder="Choose categories…"
+                />
 
                 <div>
                   <label className="text-sm font-medium block mb-2">Price</label>
-                  <select
-                    value={selectedPrice}
-                    onChange={e => setSelectedPrice(e.target.value)}
-                    className="p-2 rounded w-full border border-gray-200 bg-white/90"
-                  >
-                    <option value="">All Prices</option>
-                    {priceOptions.filter(Boolean).map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={selectedPrice}
+                      onChange={e => setSelectedPrice(e.target.value)}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-md border border-gray-200 bg-white/90 hover:border-gray-300 transition-colors"
+                    >
+                      <option value="">All Prices</option>
+                      {priceOptions.filter(Boolean).map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium block mb-2">City</label>
-                  {cityOptions.length === 0 ? (
-                    <div className="text-sm text-gray-500 p-2 bg-white/90 rounded-md border border-gray-200">
-                      No cities available
-                    </div>
-                  ) : (
-                    <div
-                      className="flex flex-wrap gap-2 overflow-y-auto border border-gray-200 rounded-md p-2 bg-white/90"
-                      style={{ maxHeight: '5.5rem' }}
-                    >
-                      {cityOptions.map(city => {
-                        const isSelected = selectedLocations.some(
-                          sel => sel.toLowerCase() === city.toLowerCase()
-                        );
-                        return (
-                          <button
-                            key={city}
-                            type="button"
-                            onClick={() =>
-                              setSelectedLocations(prev =>
-                                isSelected
-                                  ? prev.filter(sel => sel.toLowerCase() !== city.toLowerCase())
-                                  : [...prev, city]
-                              )
-                            }
-                            className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-                              isSelected
-                                ? 'bg-black text-white shadow-md'
-                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                            }`}
-                          >
-                            {city}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <Multiselect
+                  label="City"
+                  options={cityOptions}
+                  selected={selectedLocations}
+                  onChange={setSelectedLocations}
+                  placeholder="Choose cities…"
+                />
+
               </div>
 
               <div className="flex gap-3 mt-6">
@@ -263,7 +203,6 @@ function App() {
               </div>
             </div>
 
-            {/* Enhanced random result display */}
             {randomRestaurant && (
               <div 
                 className="content w-full max-w-md animate-fade-in"
@@ -304,7 +243,6 @@ function App() {
               </div>
             )}
 
-            {/* Empty state when filters return no results */}
             {hasActiveFilters && filteredCount === 0 && !randomRestaurant && (
               <div className="content w-full max-w-md">
                 <div className="text-center py-8">
@@ -325,22 +263,7 @@ function App() {
           </>
         )}
       </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-in;
-        }
-      `}</style>
+      </div>
     </div>
   );
 }
