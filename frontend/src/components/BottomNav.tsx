@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { FaHome, FaUtensils, FaUsers, FaSignInAlt } from 'react-icons/fa';
+import { FaHome, FaUtensils, FaUsers, FaSignInAlt, FaUser } from 'react-icons/fa';
 
 const TABS = [
   { to: '/', icon: FaHome, label: 'Home', requiresAuth: false },
-  { to: '/restaurants', icon: FaUtensils, label: 'Restaurants', requiresAuth: true },
+  { to: '/restaurants', icon: FaUtensils, label: 'List', requiresAuth: true },
   { to: '/group-sessions', icon: FaUsers, label: 'Group', requiresAuth: true },
+  { to: '/account', icon: FaUser, label: 'Account', requiresAuth: true },
 ];
 
 export default function BottomNav() {
@@ -15,8 +16,8 @@ export default function BottomNav() {
   const tabs = isLoggedIn ? TABS : TABS.filter(t => !t.requiresAuth);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 border-t border-gray-200 backdrop-blur-md">
-      <div className="mx-auto max-w-md flex justify-around py-2">
+    <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 px-4">
+      <div className="mx-auto max-w-md w-full flex justify-center gap-8 rounded-3xl border border-gray-200 bg-white/90 backdrop-blur-md shadow-sm py-2 px-5">
         {tabs.map(({ to, icon: Icon, label }) => {
           const isActive = location.pathname === to;
           return (
@@ -24,12 +25,20 @@ export default function BottomNav() {
               key={to}
               to={to}
               className={({ isActive: navActive }) =>
-                `flex flex-col items-center text-xs ${
+                `flex flex-col items-center gap-0.5 text-[10px] ${
                   navActive || isActive ? 'text-black' : 'text-gray-400'
                 }`
               }
             >
-              <Icon className="text-xl mb-0.5" />
+              <div
+                className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 ${
+                  isActive
+                    ? 'bg-gradient-to-tr from-pink-500/10 via-purple-500/10 to-yellow-400/10'
+                    : 'bg-transparent'
+                }`}
+              >
+                <Icon className="text-lg" />
+              </div>
               <span>{label}</span>
             </NavLink>
           );
@@ -39,12 +48,20 @@ export default function BottomNav() {
           <NavLink
             to="/login"
             className={({ isActive }) =>
-              `flex flex-col items-center text-xs ${
+              `flex flex-col items-center gap-0.5 text-[10px] flex-1 ${
                 isActive ? 'text-black' : 'text-gray-400'
               }`
             }
           >
-            <FaSignInAlt className="text-xl mb-0.5" />
+            <div
+              className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 ${
+                location.pathname === '/login'
+                  ? 'bg-gradient-to-tr from-pink-500/10 via-purple-500/10 to-yellow-400/10'
+                  : 'bg-transparent'
+              }`}
+            >
+              <FaSignInAlt className="text-lg" />
+            </div>
             <span>Login</span>
           </NavLink>
         )}
