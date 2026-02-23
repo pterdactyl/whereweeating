@@ -1,26 +1,141 @@
-# Where We Eating - Restaurant Decision Helper
+# 🍽️ WhereWeEating
 
-## 🍝 Introduction
-Choosing where to eat can be time-consuming and frustraing, especially when dining with indecisive groups. Where We Eating is a web application designed to simplify this process by randomly selecting a restaurant from a curated list based on user-definded filters such as location, category and price range. By integrating Yelp API, the app fetches restaurant data and stores into local database. The user is also allowed to add restaurants into the database. With just one click, Where We Eating quickly helps users make a decision they can all agree on. 
+A modern restaurant decision web app that helps individuals --- and soon
+groups --- quickly decide where to eat.
 
-## ✨ Features
-🔐 User signup and login
+Built to solve the classic problem:
 
-🔍 Search restaurants using the Yelp API
+> "I don't know... what do you want to eat?"
 
-➕ Add custom restaurants to your list
+------------------------------------------------------------------------
 
-🎲 Random restaurant picker
+## 🚀 Live Demo
 
-💾 Lightweight local database (lowdb)
+🌐 Production: https://whereweating.vercel.app\
+🛠 Backend: Render (Node + Express API)
 
-💡 Clean UI with Tailwind CSS
+------------------------------------------------------------------------
 
-## 🛠 Tech Stack
-Frontend: React, Tailwind CSS
+## 🧠 Why I Built This
 
-Backend: Express (Node.js), lowdb
+This project started as a way to: - Practice full-stack development -
+Implement real authentication & authorization - Design clean UI/UX
+flows - Deploy a production-ready application - Prepare for DevOps &
+backend-focused roles
 
-Auth: JSON Web Tokens (JWT)
+It evolved into a scalable restaurant decision platform with filtering,
+authentication, and future group features.
 
-API: Yelp Fusion
+------------------------------------------------------------------------
+
+## ✨ Features (v1 -- Single User Mode)
+
+### 🎲 Random Restaurant Generator
+
+-   Generates a random restaurant from database
+-   Fully filterable before randomizing
+
+### 🔍 Smart Filtering
+
+-   Multi-select category filter
+-   Multi-select location filter
+-   Price filtering
+-   Frontend filtering + backend data retrieval
+
+### 🔐 Authentication (Custom JWT)
+
+-   Register / Login
+-   Token-based auth stored in localStorage
+-   Protected routes
+-   Authorization middleware on backend
+
+### 🛠 Restaurant Management (Authenticated Users)
+
+-   Add restaurants
+-   Edit restaurants
+-   Delete restaurants
+-   Duplicate prevention
+-   Proper error handling (409, 403, 404)
+
+------------------------------------------------------------------------
+
+## 🏗️ Tech Stack
+
+### Frontend
+
+-   ⚛️ React (Vite)
+-   🧭 React Router
+-   🎨 Tailwind CSS
+-   🔥 Custom dropdown multi-select components
+
+### Backend
+
+-   🟢 Node.js
+-   🚂 Express
+-   🔐 JWT Authentication
+-   🗂 REST API Architecture
+
+### Database
+
+-   🗃 Initially: lowdb (local JSON for development visibility)
+-   ☁️ Now: Supabase Postgres
+-   🔒 RLS (Row Level Security)
+
+### Deployment
+
+-   ▲ Vercel (Frontend)
+-   🚀 Render (Backend)
+-   🌍 Environment-based configuration
+
+------------------------------------------------------------------------
+
+## 🛣️ Roadmap
+
+### 👥 Group Session Mode (In Progress)
+
+-   Create shareable group sessions
+-   Voting / veto system
+-   Weighted selection logic
+-   Hidden pool auto-fill system
+
+### 🤖 Future Enhancements
+
+-   Monthly restaurant data validation
+-   AI-assisted metadata cleanup
+-   Ranking algorithm improvements
+-   Analytics dashboard
+-   Restaurant suggestions based on usage history
+
+------------------------------------------------------------------------
+
+## 🎯 Goals of This Project
+
+This project demonstrates:
+
+-   Full-stack architecture
+-   REST API design
+-   Authentication & authorization
+-   Database modeling
+-   Deployment pipelines
+-   Real-world debugging
+-   Product iteration thinking
+
+------------------------------------------------------------------------
+
+## 👨🏻‍💻 Author
+
+Peter Lin\
+Full-Stack Developer\
+AWS Certified\
+
+------------------------------------------------------------------------
+
+## ⭐ If You Like It
+
+Feel free to star the repo or fork it.
+
+And next time someone asks:
+
+> "Where should we eat?"
+
+You'll have the answer. 🍜🔥
