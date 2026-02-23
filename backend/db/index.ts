@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
+import * as groupSessions from './groupSessions.js'
 
 export type Restaurant = {
   id: string
@@ -86,4 +87,5 @@ async function createUser(email: string, password_hash: string): Promise<User> {
 export default {
   restaurants: { getRestaurants, addRestaurant, updateRestaurant, deleteRestaurant },
   users: { getUserByEmail, createUser },
+  groupSessions,
 }

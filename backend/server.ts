@@ -240,6 +240,172 @@ app.delete('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, 
   res.status(204).end();
 });
 
+// ======================= GROUP SESSION ROUTES =======================
+
+app.post('/api/group-sessions', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user as { userID: string };
+    const session = await db.groupSessions.createSession(user.userID);
+    res.status(201).json(session);
+  } catch (err: any) {
+    console.error('Create session error:', err);
+    res.status(500).json({ message: 'Failed to create session' });
+  }
+});
+
+app.post('/api/group-sessions/join', async (req, res) => {
+  try {
+    const { code, name } = req.body as { code?: string; name?: string };
+    if (!code || !name) {
+      return res.status(400).json({ message: 'Code and name are required' });
+    }
+
+    const session = await db.groupSessions.getSessionByCode(code.toUpperCase());
+    if (!session || session.state !== 'lobby') {
+      return res.status(404).json({ message: 'Session not found or not joinable' });
+    }
+
+    const participant = await db.groupSessions.addParticipant(session.id, name.trim());
+    const participants = await db.groupSessions.listParticipants(session.id);
+
+    res.status(201).json({ session, participant, participants });
+  } catch (err: any) {
+    console.error('Join session error:', err);
+    res.status(500).json({ message: 'Failed to join session' });
+  }
+});
+
+app.get('/api/group-sessions/:id', async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+
+    const participants = await db.groupSessions.listParticipants(id);
+    res.json({ session, participants });
+  } catch (err: any) {
+    console.error('Get session error:', err);
+    res.status(500).json({ message: 'Failed to fetch session' });
+  }
+});
+
+app.post('/api/group-sessions/:id/filters', async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const { participantId, filters } = req.body as {
+      participantId?: string;
+      filters?: {
+        categories?: string[];
+        price?: string | null;
+        locations?: string[];
+      };
+    };
+
+    if (!participantId || !filters) {
+      return res.status(400).json({ message: 'participantId and filters are required' });
+    }
+
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session || session.state !== 'lobby') {
+      return res.status(400).json({ message: 'Session is not in lobby state' });
+    }
+
+    const saved = await db.groupSessions.upsertParticipantFilters(id, participantId, {
+      categories: filters.categories ?? [],
+      price: typeof filters.price === 'string' ? filters.price : null,
+      locations: filters.locations ?? [],
+    });
+    res.status(200).json(saved);
+  } catch (err: any) {
+    console.error('Save filters error:', err);
+    res.status(500).json({ message: 'Failed to save filters' });
+  }
+});
+
+app.post('/api/group-sessions/:id/generate', authenticateToken, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const user = (req as any).user as { userID: string };
+
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+    if (session.host_user_id !== user.userID) {
+      return res.status(403).json({ message: 'Only host can generate' });
+    }
+
+    const allRestaurants = await db.restaurants.getRestaurants();
+    const allFilters = await db.groupSessions.listParticipantFilters(id);
+
+    // Merge filters (simple union)
+    const merged = allFilters.reduce(
+      (acc: { categories: string[]; price: string | null; locations: string[] }, pf) => {
+        const catList = Array.isArray(pf.filters.categories) ? pf.filters.categories : [];
+        const locList = Array.isArray(pf.filters.locations) ? pf.filters.locations : [];
+
+        acc.categories = Array.from(new Set([...acc.categories, ...catList]));
+        acc.locations = Array.from(new Set([...acc.locations, ...locList]));
+
+        if (!acc.price && typeof pf.filters.price === 'string') {
+          acc.price = pf.filters.price;
+        }
+
+        return acc;
+      },
+      { categories: [], price: null, locations: [] },
+    );
+
+    // Apply same filter logic as frontend
+    const getRestaurantCategories = (categoryStr: string): string[] =>
+      (categoryStr || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    const getCityFromLocation = (loc: string): string => {
+      if (!loc) return '';
+      const parts = loc.split(',');
+      return parts[parts.length - 1].trim();
+    };
+
+    let filtered = [...allRestaurants];
+
+    if (merged.categories.length > 0) {
+      filtered = filtered.filter(r => {
+        const restCats = getRestaurantCategories(r.category || '');
+        return restCats.some(rc =>
+          merged.categories.some(sc => rc.toLowerCase() === sc.toLowerCase()),
+        );
+      });
+    }
+
+    if (merged.price) {
+      filtered = filtered.filter(r => r.price === merged.price);
+    }
+
+    if (merged.locations.length > 0) {
+      filtered = filtered.filter(r => {
+        const city = getCityFromLocation(r.location || '');
+        return merged.locations.some(sel => city.toLowerCase() === sel.toLowerCase());
+      });
+    }
+
+    if (!filtered.length) {
+      await db.groupSessions.saveResult(id, null);
+      return res.status(404).json({ message: 'No restaurants match group filters' });
+    }
+
+    const randomIndex = Math.floor(Math.random() * filtered.length);
+    const chosen = filtered[randomIndex];
+
+    const updatedSession = await db.groupSessions.saveResult(id, chosen.id);
+
+    res.status(200).json({ session: updatedSession, resultRestaurant: chosen });
+  } catch (err: any) {
+    console.error('Generate result error:', err);
+    res.status(500).json({ message: 'Failed to generate result' });
+  }
+});
+
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("GLOBAL ERROR HANDLER:", err);
   res.status(err?.status || 500).json({

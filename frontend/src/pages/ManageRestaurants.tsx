@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Navbar from '../components/Navbar';
+import BottomNav from '../components/BottomNav';
 import type { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
@@ -213,7 +213,6 @@ function ManageRestaurants() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h2 className="text-3xl font-bold mb-6">Manage Restaurants</h2>
 
@@ -447,6 +446,7 @@ function ManageRestaurants() {
           </div>
         )}
       </div>
+      <BottomNav />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import BottomNav from '../components/BottomNav';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
 
@@ -329,8 +329,6 @@ export default function AuthPage() {
     <div
       className="flat-background min-h-screen flex items-center justify-center"
       style={{ backgroundImage: "url('/images/default.jpg')" }}>
-      <Navbar />
-
       <div className="w-full max-w-md px-4">
         {/* Tab Switcher */}
         <div className="flex gap-2 mb-6 bg-white/90 rounded-lg p-1 shadow-md">
@@ -365,6 +363,7 @@ export default function AuthPage() {
           )}
         </div>
       </div>
+      <BottomNav />
     </div>
     );
 }

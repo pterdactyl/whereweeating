@@ -1,6 +1,6 @@
 import '../styles/App.css'
 import { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+import BottomNav from '../components/BottomNav';
 import { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
@@ -121,8 +121,6 @@ function App() {
     <div className="page" >
       <div className="page-bg" />
       <div className="page-content">
-      <Navbar />
-
       <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
         {isLoading ? (
           <div className="content" style={{ maxWidth: '26rem' }}>
@@ -263,6 +261,7 @@ function App() {
           </>
         )}
       </div>
+      <BottomNav />
       </div>
     </div>
   );
