@@ -71,7 +71,12 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
   if (!token) return res.status(401).json({ message: 'Token required' });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+    if (err) {
+      const isExpired = err.name === 'TokenExpiredError';
+      return res.status(isExpired ? 401 : 403).json({
+        message: isExpired ? 'Token expired' : 'Invalid token',
+      });
+    }
     (req as any).user = decoded;
     next();
   });

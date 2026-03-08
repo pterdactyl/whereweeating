@@ -55,6 +55,11 @@ function CreateOrJoinScreen() {
       });
 
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem('token');
+          showToast('error', 'Please log in again to create a session');
+          return;
+        }
         showToast('error', 'Failed to create session');
         return;
       }
@@ -289,6 +294,11 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       });
 
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem('token');
+          showToast('error', 'Please log in again');
+          return;
+        }
         const data = await res.json().catch(() => ({}));
         showToast('error', data.message || 'Failed to generate result');
         return;
