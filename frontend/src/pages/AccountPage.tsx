@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useToast } from '../components/Toast';
+import { notifyAuthChange } from '../lib/authSync';
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export default function AccountPage() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('email');
+      notifyAuthChange();
     }
 
     showToast('success', 'Logged out');

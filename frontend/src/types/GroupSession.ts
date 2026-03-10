@@ -1,4 +1,4 @@
-export type SessionState = 'lobby' | 'result';
+export type SessionState = 'lobby' | 'shortlist' | 'result';
 
 export type SessionFilters = {
   categories: string[];
@@ -12,6 +12,10 @@ export type GroupSession = {
   host_user_id: string;
   state: SessionState;
   result_restaurant_id: string | null;
+  host_filters: SessionFilters | null;
+  shortlist_restaurant_ids: string[];
+  shown_restaurant_ids: string[];
+  liked_restaurant_ids: string[];
 };
 
 export type Participant = {
@@ -19,4 +23,3 @@ export type Participant = {
   session_id: string;
   name: string;
 };
-

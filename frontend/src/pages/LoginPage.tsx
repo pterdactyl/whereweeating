@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
@@ -263,9 +263,11 @@ function Signup({ onSubmit }: AuthFormProps) {
 
 export default function AuthPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
-  
+  const returnTo = searchParams.get('returnTo') || '/';
+
   const handleLogin = async (data: AuthPayload) => {
       try {
           const res = await fetch(apiUrl(`/api/login`), {
@@ -287,7 +289,7 @@ export default function AuthPage() {
           localStorage.setItem("email", result.email ?? data.email);
           showToast('success', 'Login successful!');
           setTimeout(() => {
-            navigate("/", { replace: true });
+            navigate(returnTo.startsWith('/') ? returnTo : '/', { replace: true });
           }, 500);
         } catch (error) {
             console.error("Network or server error:", error);
@@ -312,12 +314,12 @@ export default function AuthPage() {
             }
         
             const result = await res.json();
-            localStorage.setItem("token", result.token);
-            localStorage.setItem("email", result.email ?? data.email);
-            showToast('success', 'Account created successfully!');
-            setTimeout(() => {
-              navigate("/", { replace: true });
-            }, 500);
+          localStorage.setItem("token", result.token);
+          localStorage.setItem("email", result.email ?? data.email);
+          showToast('success', 'Account created successfully!');
+          setTimeout(() => {
+            navigate(returnTo.startsWith('/') ? returnTo : '/', { replace: true });
+          }, 500);
         } catch (error) {
             console.error("Network or server error:", error);
             showToast('error', "Something went wrong, please try again later.");

@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { FaHome, FaUtensils, FaUsers, FaSignInAlt, FaUser } from 'react-icons/fa';
+import { useAuthVersion } from '../lib/authSync';
 
 const TABS = [
   { to: '/', icon: FaHome, label: 'Home', requiresAuth: false },
@@ -10,6 +11,7 @@ const TABS = [
 
 export default function BottomNav() {
   const location = useLocation();
+  useAuthVersion(); // Re-render when auth changes (e.g. logout in another tab)
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const isLoggedIn = !!token;
 

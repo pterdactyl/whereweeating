@@ -8,11 +8,12 @@ import AuthPage from './pages/LoginPage.js';
 import GroupSessionPage from './pages/GroupSessionPage.js';
 import AccountPage from './pages/AccountPage.js';
 import { ToastProvider } from './components/Toast';
-
+import { AuthSyncProvider } from './lib/authSync';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ToastProvider>
+      <AuthSyncProvider>
       <Router>
         <Routes>
           <Route path="/" element={<App />} />
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/account" element={<AccountPage />} />
         </Routes>
       </Router>
+      </AuthSyncProvider>
     </ToastProvider>
   </StrictMode>
 );
