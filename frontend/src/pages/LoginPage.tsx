@@ -325,14 +325,12 @@ export default function AuthPage() {
             showToast('error', "Something went wrong, please try again later.");
         }
     };
-
-  // Entire page
+    
   return (
     <div
       className="flat-background min-h-screen flex items-center justify-center"
       style={{ backgroundImage: "url('/images/default.jpg')" }}>
       <div className="w-full max-w-md px-4">
-        {/* Tab Switcher */}
         <div className="flex gap-2 mb-6 bg-white/90 rounded-lg p-1 shadow-md">
           <button
             className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${

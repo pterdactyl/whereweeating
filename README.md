@@ -1,4 +1,4 @@
-# 🍽️ WhereWeEating
+# 🍽️ BitePick
 
 A modern restaurant decision web app that helps individuals --- and soon
 groups --- quickly decide where to eat.

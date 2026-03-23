@@ -53,7 +53,6 @@ const defaultHostFilters: SessionFilters = {
 };
 
 export async function createSession(hostUserId: string): Promise<GroupSession> {
-  // Lazy cleanup: remove expired sessions when creating a new one
   await deleteExpiredSessions();
 
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();

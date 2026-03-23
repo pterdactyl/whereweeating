@@ -216,14 +216,12 @@ function ManageRestaurants() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h2 className="text-3xl font-bold mb-6">Manage Restaurants</h2>
 
-        {/* Loading state */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
           </div>
         ) : (
           <>
-            {/* Add Restaurant Form */}
             {isLoggedIn && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h3 className="text-xl font-semibold mb-4">Add New Restaurant</h3>
@@ -297,7 +295,6 @@ function ManageRestaurants() {
               </div>
             )}
 
-            {/* Restaurants List */}
             {restaurants.length === 0 ? (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
                 <p className="text-4xl mb-4">🍽️</p>
@@ -418,7 +415,6 @@ function ManageRestaurants() {
           </>
         )}
 
-        {/* Delete Confirmation Modal */}
         {deleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">

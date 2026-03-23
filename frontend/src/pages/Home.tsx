@@ -131,7 +131,7 @@ function App() {
         ) : (
           <>
             <div className="content w-full max-w-md">
-              <h1 className="text-3xl sm:text-4xl font-bold mb-6">Where We Eating</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold mb-6">BitePick</h1>
               
               {hasActiveFilters && (
                 <div className="mb-4 flex items-center justify-between">

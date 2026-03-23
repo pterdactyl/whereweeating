@@ -228,7 +228,6 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
 
-  // Redirect to login when host=1 (need to join as host) but user logged out in another tab
   const needsHostAuth = searchParams.get('host') === '1' && searchParams.get('code');
   useEffect(() => {
     if (needsHostAuth && !localStorage.getItem('token')) {
@@ -250,7 +249,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   const [finalizePick, setFinalizePick] = useState<string | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
-  useAuthVersion(); // Re-render when auth changes (e.g. logout in another tab)
+  useAuthVersion();
   const participantId = getStoredParticipantId(sessionId);
   const isHostPrompt = Boolean(searchParams.get('host') === '1' && searchParams.get('code') && !participantId);
 
@@ -538,7 +537,6 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
 
   const isHost = (() => {
     const email = localStorage.getItem('email');
-    // host enforcement is done on backend; here we only toggle button UX
     return Boolean(email);
   })();
 
