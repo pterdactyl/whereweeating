@@ -11,7 +11,7 @@ Built to solve the classic problem:
 
 ## 🚀 Live Demo
 
-🌐 Production: https://whereweating.vercel.app\
+🌐 Production: https://bitepick.vercel.app\
 🛠 Backend: Render (Node + Express API)
 
 ------------------------------------------------------------------------
