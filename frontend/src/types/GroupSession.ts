@@ -22,4 +22,7 @@ export type Participant = {
   id: string;
   session_id: string;
   name: string;
+  joined_at?: string;
+  is_ready?: boolean;
+  ready_at?: string | null;
 };

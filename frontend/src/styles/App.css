@@ -5,6 +5,99 @@
   padding: 0;
 }
 
+.page {
+  --bp-bg: #F8FAFC;
+  --bp-card: #FFFFFF;
+  --bp-accent: #F59E0B;
+  --bp-secondary: #E5E7EB;
+  --bp-text: #0F172A;
+  --bp-muted: #475569;
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--bp-bg);
+  color: var(--bp-text);
+}
+
+.page-content {
+  min-height: 100vh;
+  padding-bottom: 4rem;
+}
+
+.bp-shell {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.bp-ambient {
+  position: absolute;
+  inset: -32px -24px auto -24px;
+  height: 520px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.bp-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(32px);
+  opacity: 0.7;
+  will-change: transform;
+}
+
+.bp-blob--1 {
+  width: 360px;
+  height: 360px;
+  left: -120px;
+  top: 80px;
+  background: rgba(245, 158, 11, 0.22);
+  animation: bp-float-1 16s ease-in-out infinite;
+}
+
+.bp-blob--2 {
+  width: 420px;
+  height: 420px;
+  right: -160px;
+  top: 40px;
+  background: rgba(148, 163, 184, 0.28);
+  animation: bp-float-2 18s ease-in-out infinite;
+}
+
+.bp-blob--3 {
+  width: 260px;
+  height: 260px;
+  left: 42%;
+  top: 220px;
+  background: rgba(245, 158, 11, 0.14);
+  animation: bp-float-3 20s ease-in-out infinite;
+}
+
+@keyframes bp-float-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(30px, -18px, 0) scale(1.04); }
+}
+
+@keyframes bp-float-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-26px, 22px, 0) scale(0.98); }
+}
+
+@keyframes bp-float-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -26px, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-blob--1,
+  .bp-blob--2,
+  .bp-blob--3 {
+    animation: none;
+  }
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
@@ -12,10 +105,10 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em rgba(245, 158, 11, 0.35));
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 2em rgba(245, 158, 11, 0.35));
 }
 
 @keyframes logo-spin {
@@ -45,9 +138,13 @@
   margin: 0 auto;
   max-width: 500px;
   text-align: center;
-  background-color: rgba(255, 255, 255, 0.7);
-  padding: 1rem;
-  border-radius: 8px;
+  background: var(--bp-card);
+  padding: 1.25rem;
+  border-radius: 14px;
+  border: 1px solid var(--bp-secondary);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 .round {
@@ -96,25 +193,9 @@
   animation: fadeIn 0.5s ease-in;
 }
 
-.page {
-  position: relative;
-  min-height: 100vh;
-}
-
 .page-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: url("/images/main_background.jpg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-
-  transform: translateZ(0);
-  will-change: transform;
-}
-
-.page-content {
-  min-height: 100vh;
-  padding-bottom: 4rem;
+  background: var(--bp-bg);
 }

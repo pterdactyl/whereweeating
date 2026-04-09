@@ -1,6 +1,3 @@
--- Weighted group sessions: host base filters (pool), shortlist, veto/refill, finalize.
--- Run this in Supabase SQL editor or via supabase db push if you use Supabase CLI.
-
 -- Add new columns to group_sessions (idempotent)
 ALTER TABLE group_sessions
   ADD COLUMN IF NOT EXISTS host_filters jsonb DEFAULT '{"categories":[],"price":null,"locations":[]}'::jsonb;

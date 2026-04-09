@@ -5,6 +5,11 @@ import bcrypt from 'bcryptjs';
 import jwt, { Secret } from 'jsonwebtoken';
 import express, { NextFunction, Request, Response } from 'express';
 import rateLimit from "express-rate-limit";
+import {
+  pickOneFromTopWeighted,
+  rankRestaurantsForSession,
+  type RestaurantRecommendation,
+} from './groupDecision/rankRestaurantsForSession.js';
 
 dotenv.config()
 
@@ -250,6 +255,10 @@ app.delete('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, 
 type Restaurant = { id: string; name: string; category: string; location: string; price: string };
 type SessionFilters = { categories: string[]; price: string | null; locations: string[] };
 
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
 function getRestaurantCategories(categoryStr: string): string[] {
   return (categoryStr || '').split(',').map(s => s.trim()).filter(Boolean);
 }
@@ -295,30 +304,20 @@ function matchScore(restaurant: Restaurant, preferences: SessionFilters): number
   return Math.max(0, score);
 }
 
-function weightedRandomPick(
-  pool: Restaurant[],
+function pickFromRecommendations(
+  ranked: RestaurantRecommendation[],
   excludeIds: Set<string>,
-  participantPrefs: SessionFilters[],
-): Restaurant | null {
-  const available = pool.filter(r => !excludeIds.has(r.id));
-  if (available.length === 0) return null;
-  const weights = available.map(r => {
-    let w = 1;
-    for (const prefs of participantPrefs) {
-      w += matchScore(r, prefs);
-    }
-    return w;
-  });
-  const total = weights.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
-  for (let i = 0; i < available.length; i++) {
-    r -= weights[i];
-    if (r <= 0) return available[i];
+  opts: { topK: number; mode: 'top' | 'weighted_top' },
+): RestaurantRecommendation | null {
+  if (opts.mode === 'top') {
+    return ranked.find(r => !excludeIds.has(r.restaurantId)) ?? null;
   }
-  return available[available.length - 1];
+  return pickOneFromTopWeighted(ranked, excludeIds, opts.topK);
 }
 
 const SHORTLIST_SIZE = 5;
+const SHORTLIST_TOP_K = 20;
+const SHORTLIST_PICK_MODE: 'top' | 'weighted_top' = 'weighted_top';
 
 // ======================= GROUP SESSION ROUTES =======================
 
@@ -345,7 +344,22 @@ app.post('/api/group-sessions/join', async (req, res) => {
       return res.status(404).json({ message: 'Session not found or not joinable' });
     }
 
-    const participant = await db.groupSessions.addParticipant(session.id, name.trim());
+    const trimmedName = name.trim();
+    let participant;
+    try {
+      participant = await db.groupSessions.addParticipant(session.id, trimmedName);
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        const existing = await db.groupSessions.getParticipantByName(session.id, trimmedName);
+        if (existing) {
+          participant = existing;
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
     const participants = await db.groupSessions.listParticipants(session.id);
 
     res.status(201).json({ session, participant, participants });
@@ -433,15 +447,92 @@ app.post('/api/group-sessions/:id/filters', async (req, res) => {
       return res.status(400).json({ message: 'Session is not in lobby state' });
     }
 
-    const saved = await db.groupSessions.upsertParticipantFilters(id, participantId, {
+    const normalized: SessionFilters = {
       categories: filters.categories ?? [],
       price: typeof filters.price === 'string' ? filters.price : null,
       locations: filters.locations ?? [],
-    });
-    res.status(200).json(saved);
+    };
+
+    // If filters changed for a ready participant, automatically reset them to not ready.
+    const prevRow = (await db.groupSessions.listParticipantFilters(id)).find(
+      pf => pf.participant_id === participantId,
+    );
+    const prevFilters = prevRow?.filters ?? null;
+    const changed = stableStringify(prevFilters) !== stableStringify(normalized);
+
+    const saved = await db.groupSessions.upsertParticipantFilters(id, participantId, normalized);
+
+    if (changed) {
+      const participant = await db.groupSessions.getParticipantById(id, participantId);
+      if (participant?.is_ready) {
+        await db.groupSessions.setParticipantReady(id, participantId, false);
+      }
+    }
+
+    const participants = await db.groupSessions.listParticipants(id);
+    res.status(200).json({ saved, participants });
   } catch (err: any) {
     console.error('Save filters error:', err);
     res.status(500).json({ message: 'Failed to save filters' });
+  }
+});
+
+app.post('/api/group-sessions/:id/ready', async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const { participantId, ready } = req.body as { participantId?: string; ready?: boolean };
+    if (!participantId || typeof ready !== 'boolean') {
+      return res.status(400).json({ message: 'participantId and ready (boolean) are required' });
+    }
+
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session || session.state !== 'lobby') {
+      return res.status(400).json({ message: 'Session is not in lobby state' });
+    }
+
+    const updated = await db.groupSessions.setParticipantReady(id, participantId, ready);
+    const participants = await db.groupSessions.listParticipants(id);
+    return res.status(200).json({ participant: updated, participants });
+  } catch (err: any) {
+    console.error('Toggle ready error:', err);
+    const msg = typeof err?.message === 'string' ? err.message : 'Failed to update readiness';
+    return res.status(500).json({ message: msg });
+  }
+});
+
+app.post('/api/group-sessions/:id/leave', async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const { participantId } = req.body as { participantId?: string };
+    if (!participantId) return res.status(400).json({ message: 'participantId required' });
+
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+
+    await db.groupSessions.deleteParticipant(id, participantId);
+    const participants = await db.groupSessions.listParticipants(id);
+    return res.status(200).json({ ok: true, participants });
+  } catch (err: any) {
+    console.error('Leave session error:', err);
+    return res.status(500).json({ message: 'Failed to leave session' });
+  }
+});
+
+app.post('/api/group-sessions/:id/close', authenticateToken, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const user = (req as any).user as { userID: string };
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+    if (session.host_user_id !== user.userID) {
+      return res.status(403).json({ message: 'Only host can close session' });
+    }
+
+    await db.groupSessions.closeSession(id);
+    return res.status(200).json({ ok: true });
+  } catch (err: any) {
+    console.error('Close session error:', err);
+    return res.status(500).json({ message: 'Failed to close session' });
   }
 });
 
@@ -459,37 +550,70 @@ app.post('/api/group-sessions/:id/generate', authenticateToken, async (req, res)
       return res.status(400).json({ message: 'Shortlist already generated' });
     }
 
-    const allRestaurants = await db.restaurants.getRestaurants() as Restaurant[];
-    const pool = filterPool(allRestaurants, session.host_filters);
-    if (!pool.length) {
-      return res.status(404).json({ message: 'No restaurants match room filters' });
+    const readyParticipants = await db.groupSessions.listReadyParticipants(id);
+    if (readyParticipants.length < 1) {
+      return res.status(400).json({ message: 'At least 1 participant must be ready to generate' });
     }
 
-    const allPrefs = await db.groupSessions.listParticipantFilters(id);
-    const participantPrefs: SessionFilters[] = allPrefs.map(pf => ({
-      categories: Array.isArray(pf.filters.categories) ? pf.filters.categories : [],
-      price: pf.filters.price ?? null,
-      locations: Array.isArray(pf.filters.locations) ? pf.filters.locations : [],
-    }));
+    const ranking = await rankRestaurantsForSession(id, {
+      includeLikeBonus: false,
+      participantIds: readyParticipants.map(p => p.id),
+    });
+    if (!ranking.poolSize) {
+      return res.status(404).json({ message: 'No restaurants available' });
+    }
 
     const shown = new Set<string>();
     const shortlist: string[] = [];
     for (let i = 0; i < SHORTLIST_SIZE; i++) {
-      const pick = weightedRandomPick(pool, shown, participantPrefs);
+      const pick = pickFromRecommendations(ranking.recommendations, shown, {
+        topK: SHORTLIST_TOP_K,
+        mode: SHORTLIST_PICK_MODE,
+      });
       if (!pick) break;
-      shortlist.push(pick.id);
-      shown.add(pick.id);
+      shortlist.push(pick.restaurantId);
+      shown.add(pick.restaurantId);
     }
 
     const updatedSession = await db.groupSessions.setShortlist(id, shortlist, [...shown]);
+    const allRestaurants = await db.restaurants.getRestaurants() as Restaurant[];
     const shortlistRestaurants = shortlist
-      .map(rid => pool.find(r => r.id === rid))
+      .map(rid => allRestaurants.find(r => r.id === rid))
       .filter(Boolean) as Restaurant[];
 
     res.status(200).json({ session: updatedSession, shortlistRestaurants });
   } catch (err: any) {
     console.error('Generate shortlist error:', err);
     res.status(500).json({ message: 'Failed to generate shortlist' });
+  }
+});
+
+app.get('/api/group-sessions/:id/recommendations', async (req, res) => {
+  try {
+    const id = req.params.id as string;
+
+    const session = await db.groupSessions.getSessionById(id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+
+    const excludeShown = req.query.excludeShown === 'true';
+    const excludeShortlist = req.query.excludeShortlist === 'true';
+    const includeLikeBonus = req.query.includeLikeBonus !== 'false';
+
+    const exclude = new Set<string>();
+    if (excludeShown) (session.shown_restaurant_ids ?? []).forEach(rid => exclude.add(rid));
+    if (excludeShortlist) (session.shortlist_restaurant_ids ?? []).forEach(rid => exclude.add(rid));
+
+    const ranking = await rankRestaurantsForSession(id, { excludeIds: exclude, includeLikeBonus });
+
+    return res.status(200).json({
+      sessionId: id,
+      participantCount: ranking.participantCount,
+      poolSize: ranking.poolSize,
+      recommendations: ranking.recommendations,
+    });
+  } catch (err: any) {
+    console.error('Get recommendations error:', err);
+    return res.status(500).json({ message: 'Failed to fetch recommendations' });
   }
 });
 
@@ -508,19 +632,18 @@ app.post('/api/group-sessions/:id/shortlist/remove', async (req, res) => {
     const shortlist = session.shortlist_restaurant_ids.filter(id => id !== restaurantId);
     const shown = new Set(session.shown_restaurant_ids || []);
 
-    const allRestaurants = await db.restaurants.getRestaurants() as Restaurant[];
-    const pool = filterPool(allRestaurants, session.host_filters);
-    const allPrefs = await db.groupSessions.listParticipantFilters(id);
-    const participantPrefs: SessionFilters[] = allPrefs.map(pf => ({
-      categories: Array.isArray(pf.filters.categories) ? pf.filters.categories : [],
-      price: pf.filters.price ?? null,
-      locations: Array.isArray(pf.filters.locations) ? pf.filters.locations : [],
-    }));
+    const ranking = await rankRestaurantsForSession(id, {
+      excludeIds: shown,
+      includeLikeBonus: true,
+    });
 
-    const pick = weightedRandomPick(pool, shown, participantPrefs);
+    const pick = pickFromRecommendations(ranking.recommendations, shown, {
+      topK: SHORTLIST_TOP_K,
+      mode: SHORTLIST_PICK_MODE,
+    });
     if (pick) {
-      shortlist.push(pick.id);
-      shown.add(pick.id);
+      shortlist.push(pick.restaurantId);
+      shown.add(pick.restaurantId);
     }
 
     const updatedSession = await db.groupSessions.removeFromShortlistAndAppendShown(
@@ -530,8 +653,9 @@ app.post('/api/group-sessions/:id/shortlist/remove', async (req, res) => {
       [...shown],
     );
 
+    const allRestaurants = await db.restaurants.getRestaurants() as Restaurant[];
     const shortlistRestaurants = shortlist
-      .map(rid => pool.find(r => r.id === rid))
+      .map(rid => allRestaurants.find(r => r.id === rid))
       .filter(Boolean) as Restaurant[];
 
     res.status(200).json({ session: updatedSession, shortlistRestaurants });

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useAuthVersion } from '../lib/authSync';
 import { apiUrl } from '../lib/api';
 import { useToast } from '../components/Toast';
+import { clearAuth, getAuthEmail, getAuthToken } from '../lib/auth';
 import type { GroupSession, Participant, SessionFilters } from '../types/GroupSession';
 import type { Restaurant } from '../types/Restaurant';
 import Multiselect from '../components/Multiselect';
@@ -25,11 +26,32 @@ type GenerateResponse = {
   shortlistRestaurants: Restaurant[];
 };
 
+type SaveFiltersResponse = {
+  saved: unknown;
+  participants: Participant[];
+};
+
+type ReadyResponse = {
+  participant: Participant;
+  participants: Participant[];
+};
+
 const emptyFilters: SessionFilters = {
   categories: [],
   price: null,
   locations: [],
 };
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 function CreateOrJoinScreen() {
   const navigate = useNavigate();
@@ -38,11 +60,13 @@ function CreateOrJoinScreen() {
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const lastSessionId =
+    typeof window !== 'undefined' ? localStorage.getItem('last_group_session_id') : null;
 
   const handleCreate = async () => {
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (!token) {
         showToast('error', 'Please log in to create a session');
         return;
@@ -58,7 +82,7 @@ function CreateOrJoinScreen() {
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          localStorage.removeItem('token');
+          clearAuth('all');
           showToast('error', 'Please log in again to create a session');
           return;
         }
@@ -67,6 +91,9 @@ function CreateOrJoinScreen() {
       }
 
       const session: GroupSession = await res.json();
+      try {
+        localStorage.setItem('last_group_session_id', session.id);
+      } catch (_) {}
       navigate(`/group-sessions/${session.id}?code=${encodeURIComponent(session.code)}&host=1`);
     } catch {
       showToast('error', 'Network error. Try again.');
@@ -103,9 +130,9 @@ function CreateOrJoinScreen() {
       const data: JoinResponse = await res.json();
       const sid = data.session.id;
       const pid = data.participant.id;
-      sessionStorage.setItem('group_participant_id', pid);
+      setStoredParticipantId(sid, pid);
       try {
-        localStorage.setItem(`group_participant_${sid}`, pid);
+        localStorage.setItem('last_group_session_id', sid);
       } catch (_) {}
       navigate(`/group-sessions/${sid}`);
     } catch {
@@ -122,6 +149,33 @@ function CreateOrJoinScreen() {
         <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
           <div className="content w-full max-w-md">
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-left">Group Session</h1>
+
+            {lastSessionId && (
+              <div className="mb-6 p-4 bg-white/90 rounded-lg shadow-md border border-gray-200">
+                <p className="text-sm font-semibold text-gray-900 mb-2">Resume your last session</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/group-sessions/${encodeURIComponent(lastSessionId)}`)}
+                    className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
+                  >
+                    Resume
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        localStorage.removeItem('last_group_session_id');
+                      } catch (_) {}
+                      showToast('success', 'Cleared last session');
+                    }}
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-semibold"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 mb-6 bg-white/90 rounded-lg p-1 shadow-md">
               <button
@@ -210,16 +264,39 @@ export default function GroupSessionPage() {
 
 function getStoredParticipantId(sessionId: string): string {
   try {
-    return localStorage.getItem(`group_participant_${sessionId}`) || sessionStorage.getItem('group_participant_id') || '';
+    const scopedKey = `group_participant_${sessionId}`;
+    const scoped = sessionStorage.getItem(scopedKey);
+    if (scoped) return scoped;
+
+    // Backward compatibility: migrate legacy keys to tab-scoped storage.
+    const legacy = sessionStorage.getItem('group_participant_id') || localStorage.getItem(scopedKey);
+    if (legacy) {
+      sessionStorage.setItem(scopedKey, legacy);
+      sessionStorage.removeItem('group_participant_id');
+      localStorage.removeItem(scopedKey);
+      return legacy;
+    }
+    return '';
   } catch {
-    return sessionStorage.getItem('group_participant_id') || '';
+    return sessionStorage.getItem(`group_participant_${sessionId}`) || '';
   }
 }
 
 function setStoredParticipantId(sessionId: string, participantId: string) {
-  sessionStorage.setItem('group_participant_id', participantId);
+  const scopedKey = `group_participant_${sessionId}`;
+  sessionStorage.setItem(scopedKey, participantId);
+  sessionStorage.removeItem('group_participant_id');
   try {
-    localStorage.setItem(`group_participant_${sessionId}`, participantId);
+    localStorage.removeItem(scopedKey);
+  } catch (_) {}
+}
+
+function clearStoredParticipantId(sessionId: string) {
+  const scopedKey = `group_participant_${sessionId}`;
+  sessionStorage.removeItem(scopedKey);
+  sessionStorage.removeItem('group_participant_id');
+  try {
+    localStorage.removeItem(scopedKey);
   } catch (_) {}
 }
 
@@ -230,7 +307,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
 
   const needsHostAuth = searchParams.get('host') === '1' && searchParams.get('code');
   useEffect(() => {
-    if (needsHostAuth && !localStorage.getItem('token')) {
+    if (needsHostAuth && !getAuthToken()) {
       const returnTo = `/group-sessions/${sessionId}?${searchParams.toString()}`;
       navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`, { replace: true });
     }
@@ -238,20 +315,42 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   const [data, setData] = useState<SessionResponse | null>(null);
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [filters, setFilters] = useState<SessionFilters>(emptyFilters);
-  const [hostFilters, setHostFilters] = useState<SessionFilters>(emptyFilters);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSavingFilters, setIsSavingFilters] = useState(false);
-  const [isSavingHostFilters, setIsSavingHostFilters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hostName, setHostName] = useState('');
   const [isJoiningAsHost, setIsJoiningAsHost] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [finalizePick, setFinalizePick] = useState<string | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [isReadyLocal, setIsReadyLocal] = useState<boolean>(false);
+  const lastPollSigRef = useRef<string>('');
+  const sessionGoneHandledRef = useRef<boolean>(false);
 
   useAuthVersion();
   const participantId = getStoredParticipantId(sessionId);
   const isHostPrompt = Boolean(searchParams.get('host') === '1' && searchParams.get('code') && !participantId);
+  const clearLocalSessionPointers = () => {
+    try {
+      const currentLast = localStorage.getItem('last_group_session_id');
+      if (currentLast === sessionId) {
+        localStorage.removeItem('last_group_session_id');
+      }
+    } catch (_) {}
+    clearStoredParticipantId(sessionId);
+  };
+  const handleSessionGone = (message = 'This session is no longer available.') => {
+    if (sessionGoneHandledRef.current) return;
+    sessionGoneHandledRef.current = true;
+    clearLocalSessionPointers();
+    showToast('warning', message);
+    navigate('/group-sessions', { replace: true });
+  };
+  useEffect(() => {
+    try {
+      localStorage.setItem('last_group_session_id', sessionId);
+    } catch (_) {}
+  }, [sessionId]);
 
   useEffect(() => {
     const load = async () => {
@@ -263,21 +362,20 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
         ]);
 
         if (!sessionRes.ok) {
+          if (sessionRes.status === 404) {
+            handleSessionGone('Session was closed or expired.');
+            return;
+          }
           showToast('error', 'Failed to load session');
           return;
         }
 
         const sessionData: SessionResponse = await sessionRes.json();
         setData(sessionData);
-
-        const hf = sessionData.session.host_filters;
-        if (hf) {
-          setHostFilters({
-            categories: Array.isArray(hf.categories) ? hf.categories : [],
-            price: typeof hf.price === 'string' ? hf.price : null,
-            locations: Array.isArray(hf.locations) ? hf.locations : [],
-          });
-        }
+        const me = participantId
+          ? sessionData.participants.find(p => p.id === participantId)
+          : undefined;
+        setIsReadyLocal(Boolean(me?.is_ready));
 
         if (!restRes.ok) {
           showToast('error', 'Failed to load restaurants');
@@ -297,18 +395,66 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
                 price: typeof filtersData.filters.price === 'string' ? filtersData.filters.price : null,
                 locations: Array.isArray(filtersData.filters.locations) ? filtersData.filters.locations : [],
               });
+              setSaveState('saved');
             }
           }
         }
       } catch {
-        showToast('error', 'Network error. Try again.');
+        if (!sessionGoneHandledRef.current) {
+          showToast('error', 'Network error. Try again.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     load();
-  }, [sessionId, showToast]);
+  }, [sessionId, showToast, participantId, navigate]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}`));
+        if (!res.ok) {
+          if (res.status === 404) {
+            handleSessionGone('Session was closed or expired.');
+          }
+          return;
+        }
+        const sessionData: SessionResponse = await res.json();
+        if (cancelled) return;
+        const s = sessionData.session;
+        const p = sessionData.participants ?? [];
+        const sig = [
+          s.id,
+          s.state,
+          s.result_restaurant_id ?? '',
+          (s.shortlist_restaurant_ids ?? []).join(','),
+          (s.liked_restaurant_ids ?? []).join(','),
+          p.map(pp => `${pp.id}:${pp.is_ready ? '1' : '0'}:${pp.name}`).join('|'),
+        ].join('~');
+        if (sig !== lastPollSigRef.current) {
+          lastPollSigRef.current = sig;
+          setData(sessionData);
+        }
+        const pid = getStoredParticipantId(sessionId);
+        if (pid) {
+          const me = sessionData.participants.find(p => p.id === pid);
+          setIsReadyLocal(Boolean(me?.is_ready));
+        }
+      } catch {
+      }
+    };
+
+    const interval = window.setInterval(tick, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [sessionId, navigate]);
 
   const handleJoinAsHost = async () => {
     const code = searchParams.get('code')?.trim();
@@ -336,6 +482,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       }
       setStoredParticipantId(sessionId, joinData.participant.id);
       setData(prev => prev ? { ...prev, participants: joinData.participants } : prev);
+      setIsReadyLocal(Boolean(joinData.participant.is_ready));
       setSearchParams({}, { replace: true });
       showToast('success', "You're in the session");
     } catch {
@@ -345,60 +492,79 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const handleSaveHostFilters = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      setIsSavingHostFilters(true);
-      const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/host-filters`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(hostFilters),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        showToast('error', d.message || 'Failed to save room filters');
-        return;
-      }
-      const updated = await res.json();
-      setData(prev => (prev ? { ...prev, session: updated } : prev));
-      showToast('success', 'Room filters saved');
-    } catch {
-      showToast('error', 'Network error. Try again.');
-    } finally {
-      setIsSavingHostFilters(false);
-    }
-  };
-
-  const handleSaveFilters = async () => {
+  const saveFiltersLive = async (nextFilters: SessionFilters) => {
     if (!participantId) {
       showToast('error', 'Missing participant. Join the session again.');
       return;
     }
     try {
-      setIsSavingFilters(true);
+      setSaveState('saving');
       const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/filters`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ participantId, filters }),
+        body: JSON.stringify({ participantId, filters: nextFilters }),
       });
       if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was closed or expired.');
+          return;
+        }
         const d = await res.json().catch(() => ({}));
+        setSaveState('error');
         showToast('error', d.message || 'Failed to save preferences');
         return;
       }
-      showToast('success', 'Preferences saved');
+      const d: SaveFiltersResponse = await res.json();
+      setData(prev => (prev ? { ...prev, participants: d.participants } : prev));
+      const me = d.participants.find(p => p.id === participantId);
+      setIsReadyLocal(Boolean(me?.is_ready));
+      setSaveState('saved');
     } catch {
+      setSaveState('error');
       showToast('error', 'Network error. Try again.');
     } finally {
-      setIsSavingFilters(false);
+    }
+  };
+
+  const debouncedFilters = useDebouncedValue(filters, 600);
+  useEffect(() => {
+    if (!participantId) return;
+    if (!data || data.session.state !== 'lobby') return;
+    saveFiltersLive(debouncedFilters);
+  }, [debouncedFilters, participantId, sessionId, data?.session.state]);
+
+  const handleToggleReady = async (nextReady: boolean) => {
+    if (!participantId) {
+      showToast('error', 'Missing participant. Join the session again.');
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/ready`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId, ready: nextReady }),
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was closed or expired.');
+          return;
+        }
+        const d = await res.json().catch(() => ({}));
+        showToast('error', d.message || 'Failed to update readiness');
+        return;
+      }
+      const d: ReadyResponse = await res.json();
+      setData(prev => (prev ? { ...prev, participants: d.participants } : prev));
+      setIsReadyLocal(Boolean(d.participant.is_ready));
+    } catch {
+      showToast('error', 'Network error. Try again.');
     }
   };
 
   const handleGenerate = async () => {
     try {
       setIsGenerating(true);
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (!token) {
         showToast('error', 'Only the host can generate shortlist');
         return;
@@ -408,6 +574,10 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was closed or expired.');
+          return;
+        }
         if (res.status === 401 || res.status === 403) {
           showToast('error', 'Please log in again to generate');
           return;
@@ -435,6 +605,10 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
         body: JSON.stringify({ restaurantId }),
       });
       if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was closed or expired.');
+          return;
+        }
         const d = await res.json().catch(() => ({}));
         showToast('error', d.message || 'Failed to remove');
         return;
@@ -457,7 +631,12 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ restaurantId, liked }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was closed or expired.');
+        }
+        return;
+      }
       const updated = await res.json();
       setData(prev => (prev ? { ...prev, session: updated } : prev));
     } catch {
@@ -468,7 +647,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   };
 
   const handleFinalize = async (restaurantId: string) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       showToast('error', 'Please log in to finalize');
       return;
@@ -481,6 +660,10 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
         body: JSON.stringify({ restaurantId }),
       });
       if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was closed or expired.');
+          return;
+        }
         const d = await res.json().catch(() => ({}));
         showToast('error', d.message || 'Failed to finalize');
         return;
@@ -536,11 +719,75 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   }
 
   const isHost = (() => {
-    const email = localStorage.getItem('email');
+    const email = getAuthEmail();
     return Boolean(email);
   })();
 
-  const isLoggedOut = !localStorage.getItem('token');
+  const isLoggedOut = !getAuthToken();
+
+  const participants = data.participants ?? [];
+  const readyCount = participants.filter(p => p.is_ready).length;
+  const joinedCount = participants.length;
+  const canGenerate = joinedCount >= 1 && readyCount >= 1;
+
+  const handleLeave = async () => {
+    if (!participantId) {
+      clearLocalSessionPointers();
+      navigate('/group-sessions');
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/leave`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId }),
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was already closed.');
+          return;
+        }
+        const d = await res.json().catch(() => ({}));
+        showToast('error', d.message || 'Failed to leave session');
+        return;
+      }
+      const d = await res.json().catch(() => ({}));
+      setData(prev => (prev ? { ...prev, participants: d.participants ?? prev.participants } : prev));
+      clearLocalSessionPointers();
+      showToast('success', 'Left session');
+      navigate('/group-sessions');
+    } catch {
+      showToast('error', 'Network error. Try again.');
+    }
+  };
+
+  const handleClose = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      showToast('error', 'Please log in again');
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/close`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          handleSessionGone('Session was already closed.');
+          return;
+        }
+        const d = await res.json().catch(() => ({}));
+        showToast('error', d.message || 'Failed to close session');
+        return;
+      }
+      clearLocalSessionPointers();
+      showToast('success', 'Session closed');
+      navigate('/group-sessions');
+    } catch {
+      showToast('error', 'Network error. Try again.');
+    }
+  };
 
   return (
     <div className="page">
@@ -551,7 +798,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
             {isLoggedOut && (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-900 mb-2">
-                  You&apos;ve been logged out. <Link to={`/login?returnTo=${encodeURIComponent(`/group-sessions/${sessionId}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}`} className="font-semibold underline">Log in again</Link> to access host features (room filters, generate shortlist, finalize).
+                  You&apos;ve been logged out. <Link to={`/login?returnTo=${encodeURIComponent(`/group-sessions/${sessionId}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}`} className="font-semibold underline">Log in again</Link> to access host features (generate shortlist, finalize).
                 </p>
               </div>
             )}
@@ -592,6 +839,25 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
               </div>
             </div>
 
+            <div className="mb-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleLeave}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold bg-white/80 hover:bg-white"
+              >
+                Leave session
+              </button>
+              {isHost && (
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-black text-white hover:bg-gray-800"
+                >
+                  Close session
+                </button>
+              )}
+            </div>
+
             <div className="mb-4">
               <p className="text-xs font-semibold text-gray-700 mb-1">Participants</p>
               <div className="flex flex-wrap gap-2">
@@ -601,77 +867,48 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
                   data.participants.map(p => (
                     <span
                       key={p.id}
-                      className="px-2 py-1 rounded-full bg-gray-100 text-xs text-gray-800"
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        p.is_ready
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
                     >
-                      {p.name}
+                      {p.name}{p.is_ready ? ' • Ready' : ''}
                     </span>
                   ))
                 )}
               </div>
+              {data.session.state === 'lobby' && joinedCount > 0 && (
+                <p className="mt-2 text-xs text-gray-600">
+                  <span className="font-semibold">{readyCount}</span> / {joinedCount} ready
+                </p>
+              )}
             </div>
 
             {data.session.state === 'lobby' && (
               <>
-                {isHost && (
-                  <div className="border-t border-gray-200 pt-4 mt-4">
-                    <p className="text-sm font-semibold mb-2">Room filters (pool)</p>
-                    <p className="text-xs text-gray-500 mb-2">These define which restaurants can appear. Only host can edit.</p>
-                    <div className="flex flex-col gap-3">
-                      <Multiselect
-                        label="Category"
-                        options={categoryOptions}
-                        selected={hostFilters.categories}
-                        onChange={cats => setHostFilters(prev => ({ ...prev, categories: cats }))}
-                        placeholder="Any category"
-                      />
-                      <div>
-                        <label className="text-sm font-medium block mb-2">Price</label>
-                        <select
-                          value={hostFilters.price || ''}
-                          onChange={e => setHostFilters(prev => ({ ...prev, price: e.target.value || null }))}
-                          className="w-full min-h-[40px] px-3 py-2 rounded-md border border-gray-200 bg-white/90"
-                        >
-                          <option value="">All Prices</option>
-                          <option value="$">$</option>
-                          <option value="$$">$$</option>
-                          <option value="$$$">$$$</option>
-                          <option value="$$$$">$$$$</option>
-                        </select>
-                      </div>
-                      <Multiselect
-                        label="City"
-                        options={cityOptions}
-                        selected={hostFilters.locations}
-                        onChange={locs => setHostFilters(prev => ({ ...prev, locations: locs }))}
-                        placeholder="Any city"
-                      />
-                      <button
-                        onClick={handleSaveHostFilters}
-                        disabled={isSavingHostFilters}
-                        className="w-full bg-white border border-gray-300 hover:border-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg"
-                      >
-                        {isSavingHostFilters ? 'Saving…' : 'Save room filters'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 <div className="border-t border-gray-200 pt-4 mt-4">
-                  <p className="text-sm font-semibold mb-2">Your preferences (weight the pool)</p>
-                  <p className="text-xs text-gray-500 mb-2">Restaurants matching your preferences are more likely to be picked.</p>
+                  <p className="text-sm font-semibold mb-2">Your preferences</p>
+                  <p className="text-xs text-gray-500 mb-2">Your picks help shape the group shortlist.</p>
                   <div className="flex flex-col gap-3">
                     <Multiselect
                       label="Category"
                       options={categoryOptions}
                       selected={filters.categories}
-                      onChange={cats => setFilters(prev => ({ ...prev, categories: cats }))}
+                      onChange={cats => {
+                        setIsReadyLocal(false);
+                        setFilters(prev => ({ ...prev, categories: cats }));
+                      }}
                       placeholder="Choose categories…"
                     />
                     <div>
                       <label className="text-sm font-medium block mb-2">Price</label>
                       <select
                         value={filters.price || ''}
-                        onChange={e => setFilters(prev => ({ ...prev, price: e.target.value || null }))}
+                        onChange={e => {
+                          setIsReadyLocal(false);
+                          setFilters(prev => ({ ...prev, price: e.target.value || null }));
+                        }}
                         className="w-full min-h-[40px] px-3 py-2 rounded-md border border-gray-200 bg-white/90"
                       >
                         <option value="">All Prices</option>
@@ -685,16 +922,31 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
                       label="City"
                       options={cityOptions}
                       selected={filters.locations}
-                      onChange={locs => setFilters(prev => ({ ...prev, locations: locs }))}
+                      onChange={locs => {
+                        setIsReadyLocal(false);
+                        setFilters(prev => ({ ...prev, locations: locs }));
+                      }}
                       placeholder="Choose cities…"
                     />
-                    <button
-                      onClick={handleSaveFilters}
-                      disabled={isSavingFilters || !participantId}
-                      className="mt-1 w-full bg-white border border-gray-300 hover:border-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg"
-                    >
-                      {isSavingFilters ? 'Saving…' : 'Save preferences'}
-                    </button>
+                    <div className="flex items-center justify-between gap-3 mt-1">
+                      <p className="text-xs text-gray-600">
+                        {saveState === 'saving' && 'Saving…'}
+                        {saveState === 'saved' && 'Saved'}
+                        {saveState === 'error' && 'Error saving'}
+                        {saveState === 'idle' && ''}
+                      </p>
+                      <button
+                        onClick={() => handleToggleReady(!isReadyLocal)}
+                        disabled={!participantId || saveState === 'saving'}
+                        className={`shrink-0 px-4 py-2 rounded-lg font-semibold text-sm ${
+                          isReadyLocal
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-black text-white hover:bg-gray-800'
+                        } disabled:opacity-60`}
+                      >
+                        {isReadyLocal ? 'Not ready' : 'Ready'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -702,11 +954,16 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
                   <div className="border-t border-gray-200 pt-4 mt-4">
                     <button
                       onClick={handleGenerate}
-                      disabled={isGenerating}
+                      disabled={isGenerating || !canGenerate}
                       className="w-full bg-black hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg"
                     >
                       {isGenerating ? 'Generating…' : 'Generate shortlist'}
                     </button>
+                    {!canGenerate && (
+                      <p className="mt-2 text-xs text-gray-600">
+                        Need at least 1 joined participant and 1 ready participant.
+                      </p>
+                    )}
                   </div>
                 )}
               </>

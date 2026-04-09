@@ -1,5 +1,3 @@
--- Group session expiry: sessions auto-expire after 1 hour to save space.
-
 -- Add expires_at column
 ALTER TABLE group_sessions
   ADD COLUMN IF NOT EXISTS expires_at timestamptz;

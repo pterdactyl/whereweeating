@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
+import { notifyAuthChange } from '../lib/authSync';
+import { setAuth } from '../lib/auth';
 
 type AuthPayload = {
   email: string;
@@ -285,8 +287,8 @@ export default function AuthPage() {
           }
         
           const result = await res.json();
-          localStorage.setItem("token", result.token);
-          localStorage.setItem("email", result.email ?? data.email);
+          setAuth({ token: result.token, email: result.email ?? data.email, scope: 'tab' });
+          notifyAuthChange();
           showToast('success', 'Login successful!');
           setTimeout(() => {
             navigate(returnTo.startsWith('/') ? returnTo : '/', { replace: true });
@@ -314,8 +316,8 @@ export default function AuthPage() {
             }
         
             const result = await res.json();
-          localStorage.setItem("token", result.token);
-          localStorage.setItem("email", result.email ?? data.email);
+          setAuth({ token: result.token, email: result.email ?? data.email, scope: 'tab' });
+          notifyAuthChange();
           showToast('success', 'Account created successfully!');
           setTimeout(() => {
             navigate(returnTo.startsWith('/') ? returnTo : '/', { replace: true });
@@ -356,11 +358,7 @@ export default function AuthPage() {
 
         {/* Form Container */}
         <div className="content w-full">
-          {isLogin ? (
-            <Login onSubmit={handleLogin} />
-          ) : (
-            <Signup onSubmit={handleSignup} />
-          )}
+          {isLogin ? <Login onSubmit={handleLogin} /> : <Signup onSubmit={handleSignup} />}
         </div>
       </div>
       <BottomNav />

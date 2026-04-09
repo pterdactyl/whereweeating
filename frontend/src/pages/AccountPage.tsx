@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useToast } from '../components/Toast';
 import { notifyAuthChange } from '../lib/authSync';
+import { clearAuth, getAuthEmail, getAuthToken } from '../lib/auth';
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -11,8 +12,8 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('token');
-    const storedEmail = localStorage.getItem('email');
+    const token = getAuthToken();
+    const storedEmail = getAuthEmail();
 
     if (!token) {
       navigate('/login', { replace: true });
@@ -23,11 +24,8 @@ export default function AccountPage() {
   }, [navigate]);
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('email');
-      notifyAuthChange();
-    }
+    clearAuth('all');
+    notifyAuthChange();
 
     showToast('success', 'Logged out');
     navigate('/login', { replace: true });

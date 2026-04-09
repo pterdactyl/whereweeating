@@ -37,6 +37,8 @@ export type Participant = {
   session_id: string;
   name: string;
   joined_at: string;
+  is_ready: boolean;
+  ready_at: string | null;
 };
 
 export type ParticipantFilters = {
@@ -135,6 +137,62 @@ export async function listParticipants(sessionId: string): Promise<Participant[]
   return (data ?? []) as Participant[];
 }
 
+export async function getParticipantByName(
+  sessionId: string,
+  name: string,
+): Promise<Participant | null> {
+  const { data, error } = await supabase
+    .from('group_participants')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('name', name)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as Participant) ?? null;
+}
+
+export async function deleteParticipant(
+  sessionId: string,
+  participantId: string,
+): Promise<void> {
+  const { error: filtersError } = await supabase
+    .from('group_participant_filters')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('participant_id', participantId);
+  if (filtersError) throw filtersError;
+
+  const { error } = await supabase
+    .from('group_participants')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('id', participantId);
+  if (error) throw error;
+}
+
+export async function closeSession(
+  sessionId: string,
+): Promise<void> {
+  const { error: filtersError } = await supabase
+    .from('group_participant_filters')
+    .delete()
+    .eq('session_id', sessionId);
+  if (filtersError) throw filtersError;
+
+  const { error: participantsError } = await supabase
+    .from('group_participants')
+    .delete()
+    .eq('session_id', sessionId);
+  if (participantsError) throw participantsError;
+
+  const { error } = await supabase
+    .from('group_sessions')
+    .delete()
+    .eq('id', sessionId);
+  if (error) throw error;
+}
+
 export async function addParticipant(sessionId: string, name: string): Promise<Participant> {
   const { data, error } = await supabase
     .from('group_participants')
@@ -147,6 +205,83 @@ export async function addParticipant(sessionId: string, name: string): Promise<P
 
   if (error) throw error;
   return data as Participant;
+}
+
+export async function setParticipantReady(
+  sessionId: string,
+  participantId: string,
+  ready: boolean,
+): Promise<Participant> {
+  const { data, error } = await supabase
+    .from('group_participants')
+    .update({
+      is_ready: ready,
+      ready_at: ready ? new Date().toISOString() : null,
+    })
+    .eq('session_id', sessionId)
+    .eq('id', participantId)
+    .select('*')
+    .single();
+
+  if (error) {
+    if ((error as any)?.code === 'PGRST204') {
+      throw new Error(
+        "Database schema missing readiness columns. Add `is_ready boolean default false` and `ready_at timestamptz` to `group_participants` in Supabase.",
+      );
+    }
+    throw error;
+  }
+  return data as Participant;
+}
+
+export async function getParticipantById(
+  sessionId: string,
+  participantId: string,
+): Promise<Participant | null> {
+  const { data, error } = await supabase
+    .from('group_participants')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('id', participantId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as Participant) ?? null;
+}
+
+export async function listReadyParticipants(sessionId: string): Promise<Participant[]> {
+  const { data, error } = await supabase
+    .from('group_participants')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('is_ready', true)
+    .order('joined_at', { ascending: true });
+
+  if (error) {
+    if ((error as any)?.code === 'PGRST204') {
+      throw new Error(
+        "Database schema missing readiness columns. Add `is_ready boolean default false` and `ready_at timestamptz` to `group_participants` in Supabase.",
+      );
+    }
+    throw error;
+  }
+  return (data ?? []) as Participant[];
+}
+
+export async function listParticipantFiltersForParticipants(
+  sessionId: string,
+  participantIds: string[],
+): Promise<ParticipantFilters[]> {
+  if (!participantIds.length) return [];
+
+  const { data, error } = await supabase
+    .from('group_participant_filters')
+    .select('*')
+    .eq('session_id', sessionId)
+    .in('participant_id', participantIds);
+
+  if (error) throw error;
+  return (data ?? []) as ParticipantFilters[];
 }
 
 export async function upsertParticipantFilters(

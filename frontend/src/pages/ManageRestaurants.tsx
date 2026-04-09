@@ -3,13 +3,14 @@ import BottomNav from '../components/BottomNav';
 import type { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
+import { clearAuth, getAuthEmail, getAuthToken } from '../lib/auth';
 
 function ManageRestaurants() {
   const { showToast } = useToast();
 
   const ADMIN_EMAILS = ["admin@test.com"];
-  const token = localStorage.getItem("token");
-  const userEmail = localStorage.getItem("email");
+  const token = getAuthToken();
+  const userEmail = getAuthEmail();
 
   const isLoggedIn = !!token;
   const isAdmin = !!userEmail && ADMIN_EMAILS.includes(userEmail);
@@ -54,7 +55,7 @@ function ManageRestaurants() {
 
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       const res = await fetch(apiUrl(`/api/restaurants`), {
         method: "POST",
@@ -87,8 +88,7 @@ function ManageRestaurants() {
               errorMessage.toLowerCase().includes("session") ||
               errorMessage.toLowerCase().includes("admin only")) {
             showToast('error', "Your session has expired. Please log in again.");
-            localStorage.removeItem("token");
-            localStorage.removeItem("email");
+            clearAuth('all');
           } else {
             showToast('error', errorMessage);
           }
@@ -111,7 +111,7 @@ function ManageRestaurants() {
   const handleDelete = async (id: Restaurant["id"]) => {
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const res = await fetch(apiUrl(`/api/restaurants/${id}`), {
         method: "DELETE",
         headers: {
@@ -144,7 +144,7 @@ function ManageRestaurants() {
 
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       if (!token) {
         showToast('error', "Please log in to edit restaurants.");
@@ -183,8 +183,7 @@ function ManageRestaurants() {
               errorMessage.toLowerCase().includes("admin only")) {
             showToast('error', errorMessage.includes("admin") ? errorMessage : "Your session has expired. Please log in again.");
             if (errorMessage.toLowerCase().includes("token") || errorMessage.toLowerCase().includes("session")) {
-              localStorage.removeItem("token");
-              localStorage.removeItem("email");
+              clearAuth('all');
             }
           } else {
             showToast('error', errorMessage);

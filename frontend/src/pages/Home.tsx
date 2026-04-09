@@ -119,28 +119,116 @@ function App() {
 
   return (
     <div className="page" >
-      <div className="page-bg" />
       <div className="page-content">
-      <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
+      <div className="bp-shell px-4 py-8 sm:py-12">
+        <div className="bp-ambient" aria-hidden="true">
+          <div className="bp-blob bp-blob--1" />
+          <div className="bp-blob bp-blob--2" />
+          <div className="bp-blob bp-blob--3" />
+        </div>
+
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 items-start gap-6 lg:gap-8 w-full">
         {isLoading ? (
-          <div className="content" style={{ maxWidth: '26rem' }}>
+          <div className="content lg:col-span-2" style={{ maxWidth: '26rem' }}>
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+              <div
+                className="animate-spin rounded-full h-8 w-8 border-b-2"
+                style={{ borderBottomColor: 'var(--bp-accent)' }}
+              />
             </div>
           </div>
         ) : (
           <>
-            <div className="content w-full max-w-md">
-              <h1 className="text-3xl sm:text-4xl font-bold mb-6">BitePick</h1>
+            <div className="w-full">
+              <div className="text-left">
+                <h1 className="mt-4 text-4xl sm:text-5xl font-bold tracking-tight">
+                  BitePick
+                </h1>
+                <p className="mt-3 text-base sm:text-lg max-w-xl" style={{ color: 'var(--bp-muted)' }}>
+                  Filter your spots, then let the dice decide. A calmer way to answer “what should we eat?”
+                </p>
+
+                <div className="mt-6 grid grid-cols-3 gap-3 max-w-xl">
+                  <div className="rounded-xl border p-3" style={{ borderColor: 'var(--bp-secondary)', background: 'rgba(255,255,255,0.7)' }}>
+                    <p className="text-xs" style={{ color: 'var(--bp-muted)' }}>Restaurants</p>
+                    <p className="text-lg font-bold" style={{ color: 'var(--bp-text)' }}>{allRestaurants.length}</p>
+                  </div>
+                  <div className="rounded-xl border p-3" style={{ borderColor: 'var(--bp-secondary)', background: 'rgba(255,255,255,0.7)' }}>
+                    <p className="text-xs" style={{ color: 'var(--bp-muted)' }}>Categories</p>
+                    <p className="text-lg font-bold" style={{ color: 'var(--bp-text)' }}>{categoryOptions.length}</p>
+                  </div>
+                  <div className="rounded-xl border p-3" style={{ borderColor: 'var(--bp-secondary)', background: 'rgba(255,255,255,0.7)' }}>
+                    <p className="text-xs" style={{ color: 'var(--bp-muted)' }}>Cities</p>
+                    <p className="text-lg font-bold" style={{ color: 'var(--bp-text)' }}>{cityOptions.length}</p>
+                  </div>
+                </div>
+
+                {randomRestaurant ? (
+                  <div className="mt-6">
+                    <div 
+                      className="content w-full max-w-xl animate-fade-in"
+                      style={{
+                        animation: 'fadeIn 0.5s ease-in',
+                      }}
+                    >
+                      <div
+                        className="rounded-xl p-6"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(255, 251, 235, 1) 0%, rgba(255, 255, 255, 1) 65%)',
+                          border: '1px solid var(--bp-secondary)',
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="text-2xl">🍽️</span>
+                          <p className="font-bold text-lg" style={{ color: 'var(--bp-text)' }}>
+                            You should eat at
+                          </p>
+                        </div>
+                        <div className="space-y-3 text-left">
+                          <div className="rounded-lg p-3 border" style={{ background: 'var(--bp-card)', borderColor: 'var(--bp-secondary)' }}>
+                            <p className="text-xs mb-1" style={{ color: 'var(--bp-muted)' }}>Name</p>
+                            <p className="font-bold text-lg" style={{ color: 'var(--bp-text)' }}>{randomRestaurant.name}</p>
+                          </div>
+                          <div className="rounded-lg p-3 border" style={{ background: 'var(--bp-card)', borderColor: 'var(--bp-secondary)' }}>
+                            <p className="text-xs mb-1" style={{ color: 'var(--bp-muted)' }}>Category</p>
+                            <p style={{ color: 'var(--bp-text)' }}>{randomRestaurant.category}</p>
+                          </div>
+                          <div className="rounded-lg p-3 border" style={{ background: 'var(--bp-card)', borderColor: 'var(--bp-secondary)' }}>
+                            <p className="text-xs mb-1" style={{ color: 'var(--bp-muted)' }}>Location</p>
+                            <p style={{ color: 'var(--bp-text)' }}>{randomRestaurant.location}</p>
+                          </div>
+                          <div className="rounded-lg p-3 border" style={{ background: 'var(--bp-card)', borderColor: 'var(--bp-secondary)' }}>
+                            <p className="text-xs mb-1" style={{ color: 'var(--bp-muted)' }}>Price</p>
+                            <p className="font-semibold" style={{ color: 'var(--bp-text)' }}>{randomRestaurant.price}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setRandomRestaurant(null)}
+                          className="mt-4 text-sm underline"
+                          style={{ color: 'var(--bp-muted)' }}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
               
+            <div className="content w-full max-w-md lg:justify-self-end">
               {hasActiveFilters && (
                 <div className="mb-4 flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    <span className="font-semibold text-black">{filteredCount}</span> restaurant{filteredCount !== 1 ? 's' : ''} match{filteredCount !== 1 ? '' : 'es'} your filters
+                  <span className="text-sm" style={{ color: 'var(--bp-muted)' }}>
+                    <span className="font-semibold" style={{ color: 'var(--bp-text)' }}>
+                      {filteredCount}
+                    </span>{' '}
+                    restaurant{filteredCount !== 1 ? 's' : ''} match{filteredCount !== 1 ? '' : 'es'} your filters
                   </span>
                   <button
                     onClick={clearFilters}
-                    className="text-xs text-gray-600 hover:text-black underline"
+                    className="text-xs underline"
+                    style={{ color: 'var(--bp-muted)' }}
                   >
                     Clear filters
                   </button>
@@ -162,7 +250,11 @@ function App() {
                     <select
                       value={selectedPrice}
                       onChange={e => setSelectedPrice(e.target.value)}
-                      className="w-full min-h-[44px] px-3 py-2 rounded-md border border-gray-200 bg-white/90 hover:border-gray-300 transition-colors"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-md border transition-colors"
+                      style={{
+                        borderColor: 'var(--bp-secondary)',
+                        background: 'var(--bp-card)',
+                      }}
                     >
                       <option value="">All Prices</option>
                       {priceOptions.filter(Boolean).map(p => (
@@ -186,14 +278,23 @@ function App() {
                 <button
                   onClick={pickRandom}
                   disabled={filteredCount === 0}
-                  className="flex-1 bg-black hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg"
+                  className="flex-1 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg"
+                  style={{
+                    background: filteredCount === 0 ? '#9CA3AF' : 'var(--bp-accent)',
+                    color: '#111827',
+                  }}
                 >
                   {filteredCount === 0 ? 'No Matches' : 'Pick Random'}
                 </button>
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
-                    className="px-4 py-3 border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-black font-medium rounded-lg transition-colors"
+                    className="px-4 py-3 border font-medium rounded-lg transition-colors"
+                    style={{
+                      borderColor: 'var(--bp-secondary)',
+                      background: 'var(--bp-card)',
+                      color: 'var(--bp-text)',
+                    }}
                   >
                     Clear
                   </button>
@@ -201,57 +302,18 @@ function App() {
               </div>
             </div>
 
-            {randomRestaurant && (
-              <div 
-                className="content w-full max-w-md animate-fade-in"
-                style={{
-                  animation: 'fadeIn 0.5s ease-in',
-                }}
-              >
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-6 shadow-lg">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-2xl">🎲</span>
-                    <p className="font-bold text-lg text-purple-900">You should eat at:</p>
-                  </div>
-                  <div className="space-y-3 text-left">
-                    <div className="bg-white/80 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Name</p>
-                      <p className="font-bold text-lg text-black">{randomRestaurant.name}</p>
-                    </div>
-                    <div className="bg-white/80 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Category</p>
-                      <p className="text-black">{randomRestaurant.category}</p>
-                    </div>
-                    <div className="bg-white/80 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Location</p>
-                      <p className="text-black">{randomRestaurant.location}</p>
-                    </div>
-                    <div className="bg-white/80 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Price</p>
-                      <p className="text-black font-semibold">{randomRestaurant.price}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setRandomRestaurant(null)}
-                    className="mt-4 text-sm text-gray-600 hover:text-black underline"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
-
             {hasActiveFilters && filteredCount === 0 && !randomRestaurant && (
-              <div className="content w-full max-w-md">
+              <div className="content w-full max-w-md lg:col-span-2">
                 <div className="text-center py-8">
                   <p className="text-4xl mb-4">🔍</p>
                   <p className="font-semibold text-lg mb-2">No restaurants found</p>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm mb-4" style={{ color: 'var(--bp-muted)' }}>
                     Try adjusting your filters to see more options
                   </p>
                   <button
                     onClick={clearFilters}
-                    className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                    className="font-medium py-2 px-6 rounded-lg transition-colors"
+                    style={{ background: 'var(--bp-accent)', color: '#111827' }}
                   >
                     Clear All Filters
                   </button>
@@ -262,6 +324,7 @@ function App() {
         )}
       </div>
       <BottomNav />
+      </div>
       </div>
     </div>
   );
