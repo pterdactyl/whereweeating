@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
@@ -304,6 +304,16 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
+  const navigateRef = useRef(navigate);
+  const showToastRef = useRef(showToast);
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
 
   const needsHostAuth = searchParams.get('host') === '1' && searchParams.get('code');
   useEffect(() => {
@@ -330,7 +340,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   useAuthVersion();
   const participantId = getStoredParticipantId(sessionId);
   const isHostPrompt = Boolean(searchParams.get('host') === '1' && searchParams.get('code') && !participantId);
-  const clearLocalSessionPointers = () => {
+  const clearLocalSessionPointers = useCallback(() => {
     try {
       const currentLast = localStorage.getItem('last_group_session_id');
       if (currentLast === sessionId) {
@@ -338,14 +348,14 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       }
     } catch (_) {}
     clearStoredParticipantId(sessionId);
-  };
-  const handleSessionGone = (message = 'This session is no longer available.') => {
+  }, [sessionId]);
+  const handleSessionGone = useCallback((message = 'This session is no longer available.') => {
     if (sessionGoneHandledRef.current) return;
     sessionGoneHandledRef.current = true;
     clearLocalSessionPointers();
-    showToast('warning', message);
-    navigate('/group-sessions', { replace: true });
-  };
+    showToastRef.current('warning', message);
+    navigateRef.current('/group-sessions', { replace: true });
+  }, [clearLocalSessionPointers]);
   useEffect(() => {
     try {
       localStorage.setItem('last_group_session_id', sessionId);
@@ -372,36 +382,22 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
 
         const sessionData: SessionResponse = await sessionRes.json();
         setData(sessionData);
-        const me = participantId
-          ? sessionData.participants.find(p => p.id === participantId)
+        const currentParticipantId = getStoredParticipantId(sessionId);
+        const me = currentParticipantId
+          ? sessionData.participants.find(p => p.id === currentParticipantId)
           : undefined;
         setIsReadyLocal(Boolean(me?.is_ready));
 
         if (!restRes.ok) {
-          showToast('error', 'Failed to load restaurants');
+          showToastRef.current('error', 'Failed to load restaurants');
         } else {
           const restaurants: Restaurant[] = await restRes.json();
           setAllRestaurants(restaurants);
         }
 
-        const pid = getStoredParticipantId(sessionId);
-        if (pid) {
-          const filtersRes = await fetch(apiUrl(`/api/group-sessions/${sessionId}/filters?participantId=${encodeURIComponent(pid)}`));
-          if (filtersRes.ok) {
-            const filtersData = await filtersRes.json();
-            if (filtersData?.filters) {
-              setFilters({
-                categories: Array.isArray(filtersData.filters.categories) ? filtersData.filters.categories : [],
-                price: typeof filtersData.filters.price === 'string' ? filtersData.filters.price : null,
-                locations: Array.isArray(filtersData.filters.locations) ? filtersData.filters.locations : [],
-              });
-              setSaveState('saved');
-            }
-          }
-        }
       } catch {
         if (!sessionGoneHandledRef.current) {
-          showToast('error', 'Network error. Try again.');
+          showToastRef.current('error', 'Network error. Try again.');
         }
       } finally {
         setIsLoading(false);
@@ -409,7 +405,37 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     };
 
     load();
-  }, [sessionId, showToast, participantId, navigate]);
+  }, [sessionId, handleSessionGone]);
+
+  useEffect(() => {
+    if (!participantId) return;
+    let cancelled = false;
+
+    const loadFilters = async () => {
+      try {
+        const filtersRes = await fetch(
+          apiUrl(`/api/group-sessions/${sessionId}/filters?participantId=${encodeURIComponent(participantId)}`),
+        );
+        if (!filtersRes.ok || cancelled) return;
+
+        const filtersData = await filtersRes.json();
+        if (cancelled || !filtersData?.filters) return;
+
+        setFilters({
+          categories: Array.isArray(filtersData.filters.categories) ? filtersData.filters.categories : [],
+          price: typeof filtersData.filters.price === 'string' ? filtersData.filters.price : null,
+          locations: Array.isArray(filtersData.filters.locations) ? filtersData.filters.locations : [],
+        });
+        setSaveState('saved');
+      } catch {
+      }
+    };
+
+    loadFilters();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, participantId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -454,7 +480,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [sessionId, navigate]);
+  }, [sessionId, handleSessionGone]);
 
   const handleJoinAsHost = async () => {
     const code = searchParams.get('code')?.trim();
@@ -679,16 +705,18 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const categoryOptions = Array.from(
-    new Set(
-      allRestaurants.flatMap(r =>
-        (r.category || '')
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean),
+  const categoryOptions = useMemo(() => (
+    Array.from(
+      new Set(
+        allRestaurants.flatMap(r =>
+          (r.category || '')
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean),
+        ),
       ),
-    ),
-  ).sort();
+    ).sort()
+  ), [allRestaurants]);
 
   const getCityFromLocation = (loc: string): string => {
     if (!loc) return '';
@@ -696,13 +724,15 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     return parts[parts.length - 1].trim();
   };
 
-  const cityOptions = Array.from(
-    new Set(
-      allRestaurants
-        .map(r => getCityFromLocation(r.location || ''))
-        .filter(Boolean),
-    ),
-  ).sort();
+  const cityOptions = useMemo(() => (
+    Array.from(
+      new Set(
+        allRestaurants
+          .map(r => getCityFromLocation(r.location || ''))
+          .filter(Boolean),
+      ),
+    ).sort()
+  ), [allRestaurants]);
 
   if (isLoading || !data) {
     return (

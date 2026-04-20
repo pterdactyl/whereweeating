@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './styles/index.css';
@@ -11,20 +10,17 @@ import { ToastProvider } from './components/Toast';
 import { AuthSyncProvider } from './lib/authSync';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ToastProvider>
-      <AuthSyncProvider>
+  <ToastProvider>
+    <AuthSyncProvider>
       <Router>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/restaurants" element={<ManageRestaurants />} />
           <Route path="/login" element={<AuthPage />} />
-          <Route path="/group-sessions" element={<GroupSessionPage />} />
-          <Route path="/group-sessions/:id" element={<GroupSessionPage />} />
+          <Route path="/group-sessions/:id?" element={<GroupSessionPage />} />
           <Route path="/account" element={<AccountPage />} />
         </Routes>
       </Router>
-      </AuthSyncProvider>
-    </ToastProvider>
-  </StrictMode>
+    </AuthSyncProvider>
+  </ToastProvider>
 );

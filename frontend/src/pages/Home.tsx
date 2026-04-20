@@ -1,5 +1,5 @@
 import '../styles/App.css'
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import BottomNav from '../components/BottomNav';
 import { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
@@ -35,16 +35,18 @@ function App() {
   }, []);
 
   
-  const categoryOptions = Array.from(
-    new Set(
-      allRestaurants.flatMap(r =>
-        (r.category || '')
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean)
+  const categoryOptions = useMemo(() => (
+    Array.from(
+      new Set(
+        allRestaurants.flatMap(r =>
+          (r.category || '')
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        )
       )
-    )
-  ).sort();
+    ).sort()
+  ), [allRestaurants]);
 
   const getCityFromLocation = (loc: string): string => {
     if (!loc) return '';
@@ -52,15 +54,20 @@ function App() {
     return parts[parts.length - 1].trim();
   };
 
-  const cityOptions = Array.from(
-    new Set(
-      allRestaurants
-        .map(r => getCityFromLocation(r.location || ''))
-        .filter(Boolean)
-    )
-  ).sort();
+  const cityOptions = useMemo(() => (
+    Array.from(
+      new Set(
+        allRestaurants
+          .map(r => getCityFromLocation(r.location || ''))
+          .filter(Boolean)
+      )
+    ).sort()
+  ), [allRestaurants]);
 
-  const priceOptions = Array.from(new Set(allRestaurants.map(r => r.price))).sort();
+  const priceOptions = useMemo(
+    () => Array.from(new Set(allRestaurants.map(r => r.price))).sort(),
+    [allRestaurants],
+  );
 
   const getRestaurantCategories = (categoryStr: string): string[] =>
     (categoryStr || '')
@@ -68,7 +75,7 @@ function App() {
       .map(s => s.trim())
       .filter(Boolean);
 
-  const getFilteredRestaurants = (): Restaurant[] => {
+  const filteredRestaurants = useMemo((): Restaurant[] => {
     let filtered = [...allRestaurants];
 
     if (selectedCategories.length > 0) {
@@ -92,19 +99,17 @@ function App() {
     }
   
     return filtered;
-  };
+  }, [allRestaurants, selectedCategories, selectedPrice, selectedLocations]);
 
   const pickRandom = () => {
-    const filtered = getFilteredRestaurants();
-    
-    if (filtered.length === 0) {
+    if (filteredRestaurants.length === 0) {
       setRandomRestaurant(null);
       showToast('warning', 'No restaurants match your filters');
       return;
     }
   
-    const randomIndex = Math.floor(Math.random() * filtered.length);
-    setRandomRestaurant(filtered[randomIndex]);
+    const randomIndex = Math.floor(Math.random() * filteredRestaurants.length);
+    setRandomRestaurant(filteredRestaurants[randomIndex]);
   };
 
   const clearFilters = () => {
@@ -115,7 +120,7 @@ function App() {
   };
 
   const hasActiveFilters = selectedCategories.length > 0 || selectedPrice || selectedLocations.length > 0;
-  const filteredCount = getFilteredRestaurants().length;
+  const filteredCount = filteredRestaurants.length;
 
   return (
     <div className="page" >
