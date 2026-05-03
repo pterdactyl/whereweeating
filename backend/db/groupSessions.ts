@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'node:crypto';
 import 'dotenv/config';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -21,7 +22,7 @@ export type SessionFilters = {
 export type GroupSession = {
   id: string;
   code: string;
-  host_user_id: string;
+  host_user_id: string | null;
   state: SessionState;
   result_restaurant_id: string | null;
   created_at: string;
@@ -64,6 +65,7 @@ export async function createSession(hostUserId: string): Promise<GroupSession> {
     .insert({
       code,
       host_user_id: hostUserId,
+      host_claim_secret: null,
       state: 'lobby',
       host_filters: defaultHostFilters,
       shortlist_restaurant_ids: [],
@@ -77,11 +79,54 @@ export async function createSession(hostUserId: string): Promise<GroupSession> {
   return normalizeSession(data);
 }
 
+/** Guest-hosted session; returned secret must be stored client-side for host actions. */
+export async function createGuestSession(): Promise<{ session: GroupSession; hostClaimSecret: string }> {
+  await deleteExpiredSessions();
+
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const hostClaimSecret = crypto.randomBytes(24).toString('hex');
+
+  const { data, error } = await supabase
+    .from('group_sessions')
+    .insert({
+      code,
+      host_user_id: null,
+      host_claim_secret: hostClaimSecret,
+      state: 'lobby',
+      host_filters: defaultHostFilters,
+      shortlist_restaurant_ids: [],
+      shown_restaurant_ids: [],
+      liked_restaurant_ids: [],
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return { session: normalizeSession(data), hostClaimSecret };
+}
+
+async function fetchSessionRow(id: string): Promise<any | null> {
+  const { data, error } = await supabase
+    .from('group_sessions')
+    .select('*')
+    .eq('id', id)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+/** Raw row including host_claim_secret (server-side auth only). */
+export async function getSessionRowById(id: string): Promise<any | null> {
+  return fetchSessionRow(id);
+}
+
 function normalizeSession(row: any): GroupSession {
   return {
     id: row.id,
     code: row.code,
-    host_user_id: row.host_user_id,
+    host_user_id: row.host_user_id ?? null,
     state: row.state ?? 'lobby',
     result_restaurant_id: row.result_restaurant_id ?? null,
     created_at: row.created_at,
@@ -91,6 +136,11 @@ function normalizeSession(row: any): GroupSession {
     shown_restaurant_ids: Array.isArray(row.shown_restaurant_ids) ? row.shown_restaurant_ids : [],
     liked_restaurant_ids: Array.isArray(row.liked_restaurant_ids) ? row.liked_restaurant_ids : [],
   };
+}
+
+/** Strip DB-only columns for responses that include raw rows (server-only). */
+export function groupSessionFromRow(row: any): GroupSession {
+  return normalizeSession(row);
 }
 
 export async function deleteExpiredSessions(): Promise<number> {
@@ -115,14 +165,7 @@ export async function getSessionByCode(code: string): Promise<GroupSession | nul
 }
 
 export async function getSessionById(id: string): Promise<GroupSession | null> {
-  const { data, error } = await supabase
-    .from('group_sessions')
-    .select('*')
-    .eq('id', id)
-    .gt('expires_at', new Date().toISOString())
-    .maybeSingle();
-
-  if (error) throw error;
+  const data = await fetchSessionRow(id);
   return data ? normalizeSession(data) : null;
 }
 

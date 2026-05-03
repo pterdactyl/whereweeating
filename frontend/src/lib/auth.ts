@@ -34,6 +34,21 @@ export function getAuthEmail(): string | null {
   return safeGet(window.sessionStorage, 'email');
 }
 
+/** JWT payload only — host checks are enforced on the server. */
+export function getAuthUserId(): string | null {
+  const token = getAuthToken();
+  if (!token) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadJson) as { userID?: string };
+    return payload.userID ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function hasTabScopedAuth(): boolean {
   if (typeof window === 'undefined') return false;
   return Boolean(safeGet(window.sessionStorage, 'token'));

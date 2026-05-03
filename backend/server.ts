@@ -1,4 +1,5 @@
 import cors from 'cors'
+import crypto from 'node:crypto'
 import dotenv from 'dotenv'
 import db from './db/index.js'
 import bcrypt from 'bcryptjs';
@@ -85,6 +86,39 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
     (req as any).user = decoded;
     next();
   });
+}
+
+/** Attaches req.user when Authorization JWT is valid; invalid/expired tokens are ignored (guest flows). */
+function attachUserFromValidJwt(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return next();
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (!err) (req as any).user = decoded;
+    next();
+  });
+}
+
+function hostControlsSession(
+  req: Request,
+  row: { host_user_id?: string | null; host_claim_secret?: string | null },
+): boolean {
+  const user = (req as any).user as { userID?: string } | undefined;
+  if (row.host_user_id) {
+    return Boolean(user?.userID && user.userID === row.host_user_id);
+  }
+  const raw = req.headers['x-host-claim-secret'];
+  const presented = Array.isArray(raw) ? raw[0] : raw;
+  const stored = row.host_claim_secret;
+  if (!presented || !stored || typeof presented !== 'string') return false;
+  try {
+    const a = Buffer.from(stored, 'utf8');
+    const b = Buffer.from(presented, 'utf8');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
@@ -321,11 +355,15 @@ const SHORTLIST_PICK_MODE: 'top' | 'weighted_top' = 'weighted_top';
 
 // ======================= GROUP SESSION ROUTES =======================
 
-app.post('/api/group-sessions', authenticateToken, async (req, res) => {
+app.post('/api/group-sessions', attachUserFromValidJwt, async (req, res) => {
   try {
-    const user = (req as any).user as { userID: string };
-    const session = await db.groupSessions.createSession(user.userID);
-    res.status(201).json(session);
+    const user = (req as any).user as { userID?: string } | undefined;
+    if (user?.userID) {
+      const session = await db.groupSessions.createSession(user.userID);
+      return res.status(201).json({ session });
+    }
+    const created = await db.groupSessions.createGuestSession();
+    return res.status(201).json({ session: created.session, hostClaimSecret: created.hostClaimSecret });
   } catch (err: any) {
     console.error('Create session error:', err);
     res.status(500).json({ message: 'Failed to create session' });
@@ -383,15 +421,15 @@ app.get('/api/group-sessions/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/group-sessions/:id/host-filters', authenticateToken, async (req, res) => {
+app.patch('/api/group-sessions/:id/host-filters', attachUserFromValidJwt, async (req, res) => {
   try {
     const id = req.params.id as string;
-    const user = (req as any).user as { userID: string };
-    const session = await db.groupSessions.getSessionById(id);
-    if (!session) return res.status(404).json({ message: 'Session not found' });
-    if (session.host_user_id !== user.userID) {
+    const row = await db.groupSessions.getSessionRowById(id);
+    if (!row) return res.status(404).json({ message: 'Session not found' });
+    if (!hostControlsSession(req, row)) {
       return res.status(403).json({ message: 'Only host can set room filters' });
     }
+    const session = db.groupSessions.groupSessionFromRow(row);
     if (session.state !== 'lobby') {
       return res.status(400).json({ message: 'Cannot change filters after shortlist is generated' });
     }
@@ -518,13 +556,12 @@ app.post('/api/group-sessions/:id/leave', async (req, res) => {
   }
 });
 
-app.post('/api/group-sessions/:id/close', authenticateToken, async (req, res) => {
+app.post('/api/group-sessions/:id/close', attachUserFromValidJwt, async (req, res) => {
   try {
     const id = req.params.id as string;
-    const user = (req as any).user as { userID: string };
-    const session = await db.groupSessions.getSessionById(id);
-    if (!session) return res.status(404).json({ message: 'Session not found' });
-    if (session.host_user_id !== user.userID) {
+    const row = await db.groupSessions.getSessionRowById(id);
+    if (!row) return res.status(404).json({ message: 'Session not found' });
+    if (!hostControlsSession(req, row)) {
       return res.status(403).json({ message: 'Only host can close session' });
     }
 
@@ -536,16 +573,16 @@ app.post('/api/group-sessions/:id/close', authenticateToken, async (req, res) =>
   }
 });
 
-app.post('/api/group-sessions/:id/generate', authenticateToken, async (req, res) => {
+app.post('/api/group-sessions/:id/generate', attachUserFromValidJwt, async (req, res) => {
   try {
     const id = req.params.id as string;
-    const user = (req as any).user as { userID: string };
 
-    const session = await db.groupSessions.getSessionById(id);
-    if (!session) return res.status(404).json({ message: 'Session not found' });
-    if (session.host_user_id !== user.userID) {
+    const row = await db.groupSessions.getSessionRowById(id);
+    if (!row) return res.status(404).json({ message: 'Session not found' });
+    if (!hostControlsSession(req, row)) {
       return res.status(403).json({ message: 'Only host can generate shortlist' });
     }
+    const session = db.groupSessions.groupSessionFromRow(row);
     if (session.state !== 'lobby') {
       return res.status(400).json({ message: 'Shortlist already generated' });
     }
@@ -684,18 +721,18 @@ app.post('/api/group-sessions/:id/shortlist/like', async (req, res) => {
   }
 });
 
-app.post('/api/group-sessions/:id/finalize', authenticateToken, async (req, res) => {
+app.post('/api/group-sessions/:id/finalize', attachUserFromValidJwt, async (req, res) => {
   try {
     const id = req.params.id as string;
-    const user = (req as any).user as { userID: string };
     const { restaurantId } = req.body as { restaurantId?: string };
     if (!restaurantId) return res.status(400).json({ message: 'restaurantId required' });
 
-    const session = await db.groupSessions.getSessionById(id);
-    if (!session) return res.status(404).json({ message: 'Session not found' });
-    if (session.host_user_id !== user.userID) {
+    const row = await db.groupSessions.getSessionRowById(id);
+    if (!row) return res.status(404).json({ message: 'Session not found' });
+    if (!hostControlsSession(req, row)) {
       return res.status(403).json({ message: 'Only host can finalize' });
     }
+    const session = db.groupSessions.groupSessionFromRow(row);
     if (session.state !== 'shortlist') {
       return res.status(400).json({ message: 'Generate a shortlist first' });
     }

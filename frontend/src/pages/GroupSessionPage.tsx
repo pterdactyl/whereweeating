@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useAuthVersion } from '../lib/authSync';
 import { apiUrl } from '../lib/api';
 import { useToast } from '../components/Toast';
-import { clearAuth, getAuthEmail, getAuthToken } from '../lib/auth';
+import { clearAuth, getAuthToken, getAuthUserId } from '../lib/auth';
+import { clearStoredHostClaim, getStoredHostClaim, setStoredHostClaim } from '../lib/groupSessionHost';
 import type { GroupSession, Participant, SessionFilters } from '../types/GroupSession';
 import type { Restaurant } from '../types/Restaurant';
 import Multiselect from '../components/Multiselect';
@@ -44,6 +44,15 @@ const emptyFilters: SessionFilters = {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
+function buildHostActionHeaders(sessionId: string): HeadersInit {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const claim = getStoredHostClaim(sessionId);
+  if (claim) headers['X-Host-Claim-Secret'] = claim;
+  return headers;
+}
+
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState<T>(value);
   useEffect(() => {
@@ -66,19 +75,20 @@ function CreateOrJoinScreen() {
   const handleCreate = async () => {
     try {
       setIsSubmitting(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = getAuthToken();
-      if (!token) {
-        showToast('error', 'Please log in to create a session');
-        return;
-      }
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const res = await fetch(apiUrl('/api/group-sessions'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
       });
+
+      const body = (await res.json().catch(() => ({}))) as {
+        session?: GroupSession;
+        hostClaimSecret?: string;
+        message?: string;
+      };
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
@@ -86,11 +96,18 @@ function CreateOrJoinScreen() {
           showToast('error', 'Please log in again to create a session');
           return;
         }
-        showToast('error', 'Failed to create session');
+        showToast('error', body.message || 'Failed to create session');
         return;
       }
 
-      const session: GroupSession = await res.json();
+      const session = body.session;
+      if (!session?.id) {
+        showToast('error', 'Failed to create session');
+        return;
+      }
+      if (typeof body.hostClaimSecret === 'string' && body.hostClaimSecret) {
+        setStoredHostClaim(session.id, body.hostClaimSecret);
+      }
       try {
         localStorage.setItem('last_group_session_id', session.id);
       } catch (_) {}
@@ -268,7 +285,6 @@ function getStoredParticipantId(sessionId: string): string {
     const scoped = sessionStorage.getItem(scopedKey);
     if (scoped) return scoped;
 
-    // Backward compatibility: migrate legacy keys to tab-scoped storage.
     const legacy = sessionStorage.getItem('group_participant_id') || localStorage.getItem(scopedKey);
     if (legacy) {
       sessionStorage.setItem(scopedKey, legacy);
@@ -315,13 +331,6 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     showToastRef.current = showToast;
   }, [showToast]);
 
-  const needsHostAuth = searchParams.get('host') === '1' && searchParams.get('code');
-  useEffect(() => {
-    if (needsHostAuth && !getAuthToken()) {
-      const returnTo = `/group-sessions/${sessionId}?${searchParams.toString()}`;
-      navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`, { replace: true });
-    }
-  }, [needsHostAuth, sessionId, searchParams, navigate]);
   const [data, setData] = useState<SessionResponse | null>(null);
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [filters, setFilters] = useState<SessionFilters>(emptyFilters);
@@ -348,6 +357,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       }
     } catch (_) {}
     clearStoredParticipantId(sessionId);
+    clearStoredHostClaim(sessionId);
   }, [sessionId]);
   const handleSessionGone = useCallback((message = 'This session is no longer available.') => {
     if (sessionGoneHandledRef.current) return;
@@ -590,14 +600,9 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   const handleGenerate = async () => {
     try {
       setIsGenerating(true);
-      const token = getAuthToken();
-      if (!token) {
-        showToast('error', 'Only the host can generate shortlist');
-        return;
-      }
       const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/generate`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: buildHostActionHeaders(sessionId),
       });
       if (!res.ok) {
         if (res.status === 404) {
@@ -673,16 +678,11 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   };
 
   const handleFinalize = async (restaurantId: string) => {
-    const token = getAuthToken();
-    if (!token) {
-      showToast('error', 'Please log in to finalize');
-      return;
-    }
     setIsFinalizing(true);
     try {
       const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/finalize`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: buildHostActionHeaders(sessionId),
         body: JSON.stringify({ restaurantId }),
       });
       if (!res.ok) {
@@ -748,12 +748,12 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const isHost = (() => {
-    const email = getAuthEmail();
-    return Boolean(email);
-  })();
-
-  const isLoggedOut = !getAuthToken();
+  const authUserId = getAuthUserId();
+  const guestHostClaim = getStoredHostClaim(sessionId);
+  const isHost = Boolean(
+    (data.session.host_user_id && authUserId && data.session.host_user_id === authUserId)
+      || (!data.session.host_user_id && guestHostClaim),
+  );
 
   const participants = data.participants ?? [];
   const readyCount = participants.filter(p => p.is_ready).length;
@@ -792,15 +792,10 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   };
 
   const handleClose = async () => {
-    const token = getAuthToken();
-    if (!token) {
-      showToast('error', 'Please log in again');
-      return;
-    }
     try {
       const res = await fetch(apiUrl(`/api/group-sessions/${sessionId}/close`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: buildHostActionHeaders(sessionId),
       });
       if (!res.ok) {
         if (res.status === 404) {
@@ -825,13 +820,6 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       <div className="page-content">
         <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
           <div className="content w-full max-w-md text-left">
-            {isLoggedOut && (
-              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-900 mb-2">
-                  You&apos;ve been logged out. <Link to={`/login?returnTo=${encodeURIComponent(`/group-sessions/${sessionId}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}`} className="font-semibold underline">Log in again</Link> to access host features (generate shortlist, finalize).
-                </p>
-              </div>
-            )}
             {isHostPrompt && (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm font-medium text-amber-900 mb-2">Enter your name to join as host</p>

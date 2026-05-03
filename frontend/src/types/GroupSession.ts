@@ -9,7 +9,7 @@ export type SessionFilters = {
 export type GroupSession = {
   id: string;
   code: string;
-  host_user_id: string;
+  host_user_id: string | null;
   state: SessionState;
   result_restaurant_id: string | null;
   host_filters: SessionFilters | null;

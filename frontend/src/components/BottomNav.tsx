@@ -6,7 +6,7 @@ import { getAuthToken } from '../lib/auth';
 const TABS = [
   { to: '/', icon: FaHome, label: 'Home', requiresAuth: false },
   { to: '/restaurants', icon: FaUtensils, label: 'List', requiresAuth: true },
-  { to: '/group-sessions', icon: FaUsers, label: 'Group', requiresAuth: true },
+  { to: '/group-sessions', icon: FaUsers, label: 'Group', requiresAuth: false },
   { to: '/account', icon: FaUser, label: 'Account', requiresAuth: true },
 ];
 
