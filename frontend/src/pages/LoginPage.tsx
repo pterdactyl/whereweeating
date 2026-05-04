@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import BottomNav from '../components/BottomNav';
+import { FaCog } from 'react-icons/fa';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
 import { notifyAuthChange } from '../lib/authSync';
@@ -268,6 +268,7 @@ export default function AuthPage() {
   const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
+  const [gearOpen, setGearOpen] = useState(false);
   const returnTo = searchParams.get('returnTo') || '/';
 
   const handleLogin = async (data: AuthPayload) => {
@@ -330,8 +331,30 @@ export default function AuthPage() {
     
   return (
     <div
-      className="flat-background min-h-screen flex items-center justify-center"
+      className="flat-background min-h-screen flex items-center justify-center relative"
       style={{ backgroundImage: "url('/images/default.jpg')" }}>
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          type="button"
+          onClick={() => setGearOpen(o => !o)}
+          className="flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition hover:shadow-md bg-white"
+        >
+          <FaCog className="text-lg" />
+        </button>
+        {gearOpen && (
+          <div className="absolute right-0 mt-2 min-w-[11rem] rounded-xl border py-1 shadow-lg bg-white" role="menu">
+            <Link to="/" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
+              Home
+            </Link>
+            <Link to="/login" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
+              Login
+            </Link>
+            <Link to="/restaurants" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
+              Manage restaurants
+            </Link>
+          </div>
+        )}
+      </div>
       <div className="w-full max-w-md px-4">
         <div className="flex gap-2 mb-6 bg-white/90 rounded-lg p-1 shadow-md">
           <button
@@ -361,7 +384,6 @@ export default function AuthPage() {
           {isLogin ? <Login onSubmit={handleLogin} /> : <Signup onSubmit={handleSignup} />}
         </div>
       </div>
-      <BottomNav />
     </div>
     );
 }

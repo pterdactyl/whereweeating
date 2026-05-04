@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import BottomNav from '../components/BottomNav';
+import { Link } from 'react-router-dom';
+import { FaCog } from 'react-icons/fa';
 import type { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
@@ -20,6 +21,7 @@ function ManageRestaurants() {
   const [deleteConfirm, setDeleteConfirm] = useState<Restaurant["id"] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gearOpen, setGearOpen] = useState(false);
   const [newData, setNewData] = useState<{
     name: string;
     category: string;
@@ -213,6 +215,30 @@ function ManageRestaurants() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex justify-end mb-2">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setGearOpen(o => !o)}
+              className="flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition hover:shadow-md bg-white"
+            >
+              <FaCog className="text-lg" />
+            </button>
+            {gearOpen && (
+              <div className="absolute right-0 mt-2 min-w-[11rem] rounded-xl border py-1 shadow-lg bg-white z-20" role="menu">
+                <Link to="/" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
+                  Home
+                </Link>
+                <Link to="/login" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
+                  Login
+                </Link>
+                <Link to="/restaurants" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
+                  Manage restaurants
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
         <h2 className="text-3xl font-bold mb-6">Manage Restaurants</h2>
 
         {isLoading ? (
@@ -441,7 +467,6 @@ function ManageRestaurants() {
           </div>
         )}
       </div>
-      <BottomNav />
     </div>
   );
 }

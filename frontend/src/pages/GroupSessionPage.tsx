@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import BottomNav from '../components/BottomNav';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthVersion } from '../lib/authSync';
 import { apiUrl } from '../lib/api';
 import { useToast } from '../components/Toast';
@@ -62,8 +61,11 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function CreateOrJoinScreen() {
-  const navigate = useNavigate();
+type CreateOrJoinScreenProps = {
+  onOpenSession: (sessionId: string) => void;
+};
+
+function CreateOrJoinScreen({ onOpenSession }: CreateOrJoinScreenProps) {
   const { showToast } = useToast();
   const [isCreating, setIsCreating] = useState(true);
   const [joinCode, setJoinCode] = useState('');
@@ -111,7 +113,7 @@ function CreateOrJoinScreen() {
       try {
         localStorage.setItem('last_group_session_id', session.id);
       } catch (_) {}
-      navigate(`/group-sessions/${session.id}?code=${encodeURIComponent(session.code)}&host=1`);
+      onOpenSession(session.id);
     } catch {
       showToast('error', 'Network error. Try again.');
     } finally {
@@ -151,7 +153,7 @@ function CreateOrJoinScreen() {
       try {
         localStorage.setItem('last_group_session_id', sid);
       } catch (_) {}
-      navigate(`/group-sessions/${sid}`);
+      onOpenSession(sid);
     } catch {
       showToast('error', 'Network error. Try again.');
     } finally {
@@ -159,12 +161,9 @@ function CreateOrJoinScreen() {
     }
   };
 
-  return (
-    <div className="page">
-      <div className="page-bg" />
-      <div className="page-content">
-        <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
-          <div className="content w-full max-w-md">
+  const content = (
+    <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
+      <div className="content w-full max-w-md">
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-left">Group Session</h1>
 
             {lastSessionId && (
@@ -173,7 +172,7 @@ function CreateOrJoinScreen() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => navigate(`/group-sessions/${encodeURIComponent(lastSessionId)}`)}
+                    onClick={() => onOpenSession(lastSessionId)}
                     className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
                   >
                     Resume
@@ -261,22 +260,11 @@ function CreateOrJoinScreen() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-        <BottomNav />
       </div>
     </div>
   );
-}
 
-export default function GroupSessionPage() {
-  const params = useParams<{ id?: string }>();
-
-  if (!params.id) {
-    return <CreateOrJoinScreen />;
-  }
-
-  return <ActiveSessionView sessionId={params.id} />;
+  return content;
 }
 
 function getStoredParticipantId(sessionId: string): string {
@@ -316,7 +304,15 @@ function clearStoredParticipantId(sessionId: string) {
   } catch (_) {}
 }
 
-function ActiveSessionView({ sessionId }: { sessionId: string }) {
+function ActiveSessionView({
+  sessionId,
+  embedded = false,
+  onExit,
+}: {
+  sessionId: string;
+  embedded?: boolean;
+  onExit?: () => void;
+}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
@@ -359,13 +355,20 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
     clearStoredParticipantId(sessionId);
     clearStoredHostClaim(sessionId);
   }, [sessionId]);
+  const exitToLobby = useCallback(() => {
+    if (onExit) {
+      onExit();
+      return;
+    }
+    navigateRef.current('/', { replace: true });
+  }, [onExit]);
   const handleSessionGone = useCallback((message = 'This session is no longer available.') => {
     if (sessionGoneHandledRef.current) return;
     sessionGoneHandledRef.current = true;
     clearLocalSessionPointers();
     showToastRef.current('warning', message);
-    navigateRef.current('/group-sessions', { replace: true });
-  }, [clearLocalSessionPointers]);
+    exitToLobby();
+  }, [clearLocalSessionPointers, exitToLobby]);
   useEffect(() => {
     try {
       localStorage.setItem('last_group_session_id', sessionId);
@@ -736,13 +739,12 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
 
   if (isLoading || !data) {
     return (
-      <div className="page">
-        <div className="page-bg" />
-        <div className="page-content">
+      <div className={embedded ? '' : 'page'}>
+        {!embedded && <div className="page-bg" />}
+        <div className={embedded ? '' : 'page-content'}>
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black" />
           </div>
-          <BottomNav />
         </div>
       </div>
     );
@@ -763,7 +765,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
   const handleLeave = async () => {
     if (!participantId) {
       clearLocalSessionPointers();
-      navigate('/group-sessions');
+      exitToLobby();
       return;
     }
     try {
@@ -785,7 +787,7 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       setData(prev => (prev ? { ...prev, participants: d.participants ?? prev.participants } : prev));
       clearLocalSessionPointers();
       showToast('success', 'Left session');
-      navigate('/group-sessions');
+      exitToLobby();
     } catch {
       showToast('error', 'Network error. Try again.');
     }
@@ -808,16 +810,16 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
       }
       clearLocalSessionPointers();
       showToast('success', 'Session closed');
-      navigate('/group-sessions');
+      exitToLobby();
     } catch {
       showToast('error', 'Network error. Try again.');
     }
   };
 
   return (
-    <div className="page">
-      <div className="page-bg" />
-      <div className="page-content">
+    <div className={embedded ? 'w-full' : 'page'}>
+      {!embedded && <div className="page-bg" />}
+      <div className={embedded ? '' : 'page-content'}>
         <div className="flex flex-col items-center gap-6 w-full px-4 py-8 sm:py-12">
           <div className="content w-full max-w-md text-left">
             {isHostPrompt && (
@@ -1093,9 +1095,18 @@ function ActiveSessionView({ sessionId }: { sessionId: string }) {
             })()}
           </div>
         </div>
-        <BottomNav />
       </div>
     </div>
   );
+}
+
+export function GroupSessionHomePanel() {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  if (!sessionId) {
+    return <CreateOrJoinScreen onOpenSession={setSessionId} />;
+  }
+
+  return <ActiveSessionView sessionId={sessionId} embedded onExit={() => setSessionId(null)} />;
 }
 

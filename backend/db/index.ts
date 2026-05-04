@@ -18,12 +18,19 @@ export type User = {
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const FALLBACK_SUPABASE_URL = 'http://127.0.0.1:54321'
+const FALLBACK_SUPABASE_KEY = 'development-placeholder-key'
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in backend .env')
+  console.warn(
+    'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing. Using development placeholders; DB calls will fail until backend/.env is configured.',
+  )
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+const supabase = createClient(
+  SUPABASE_URL || FALLBACK_SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SUPABASE_KEY,
+)
 
 async function getRestaurants(): Promise<Restaurant[]> {
   const { data, error } = await supabase

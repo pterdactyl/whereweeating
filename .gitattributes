@@ -1,0 +1,19 @@
+# Normalize line endings: store LF in the repo, check out LF on all platforms.
+* text=auto eol=lf
+
+# Windows scripts that expect CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
