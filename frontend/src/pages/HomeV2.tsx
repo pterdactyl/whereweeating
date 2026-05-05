@@ -11,6 +11,7 @@ import { GroupSessionHomePanel } from './GroupSessionPage';
 export default function HomeV2() {
   const { showToast } = useToast();
   const gearRef = useRef<HTMLDivElement>(null);
+  const prefsRef = useRef<HTMLDivElement>(null);
   const [gearOpen, setGearOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
@@ -53,6 +54,17 @@ export default function HomeV2() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [gearOpen]);
+
+  useEffect(() => {
+    if (!prefsOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (prefsRef.current && !prefsRef.current.contains(e.target as Node)) {
+        setPrefsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [prefsOpen]);
 
   const categoryOptions = useMemo(
     () =>
@@ -143,11 +155,11 @@ export default function HomeV2() {
     selectedCategories.length > 0 || !!selectedPrice || selectedLocations.length > 0;
 
   return (
-    <div className="page">
+    <div className="page home-page">
       <div className="page-content">
-        <div className="bp-shell px-4 pt-6 pb-10 relative min-h-screen">
+        <div className="bp-shell px-4 pt-6 pb-6 relative h-full">
 
-          <div ref={gearRef} className="absolute top-4 right-4 z-20">
+          <div ref={gearRef} className="fixed top-4 right-4 z-30">
             <button
               type="button"
               onClick={() => setGearOpen(o => !o)}
@@ -200,7 +212,7 @@ export default function HomeV2() {
             )}
           </div>
 
-          <div className="relative z-10 flex flex-col items-center text-center pt-10 sm:pt-14">
+          <div className="relative z-10 flex flex-col items-center text-center pt-20 sm:pt-24">
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div
@@ -228,19 +240,95 @@ export default function HomeV2() {
                   >
                     {filteredCount === 0 ? 'No matches' : 'Pick for Me'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setPrefsOpen(prev => !prev)}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border transition hover:bg-black/[0.03]"
-                    style={{
-                      borderColor: 'var(--bp-secondary)',
-                      background: 'var(--bp-card)',
-                      color: 'var(--bp-text)',
-                    }}
-                    aria-label="Preferences and filters"
-                  >
-                    <FaFilter className="text-sm opacity-80" />
-                  </button>
+                  <div ref={prefsRef} className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPrefsOpen(prev => !prev)}
+                      className="flex h-12 w-12 items-center justify-center rounded-xl border transition hover:bg-black/[0.03]"
+                      style={{
+                        borderColor: 'var(--bp-secondary)',
+                        background: 'var(--bp-card)',
+                        color: 'var(--bp-text)',
+                      }}
+                      aria-label="Preferences and filters"
+                      aria-expanded={prefsOpen}
+                    >
+                      <FaFilter className="text-sm opacity-80" />
+                    </button>
+
+                    {prefsOpen && (
+                      <div
+                        className="absolute left-full top-1/2 z-40 ml-2 w-[19rem] -translate-y-1/2 rounded-2xl border p-4 text-left shadow-lg"
+                        style={{
+                          background: 'var(--bp-card)',
+                          borderColor: 'var(--bp-secondary)',
+                        }}
+                      >
+                        <div className="mb-3 flex items-center justify-between">
+                          <h2 id="prefs-title" className="text-base font-bold">
+                            Preferences
+                          </h2>
+                          <button
+                            type="button"
+                            onClick={() => setPrefsOpen(false)}
+                            className="rounded-lg px-2 py-1 text-sm font-medium"
+                            style={{ color: 'var(--bp-muted)' }}
+                          >
+                            Done
+                          </button>
+                        </div>
+
+                        {hasActiveFilters && (
+                          <div className="mb-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={clearFilters}
+                              className="text-xs underline"
+                              style={{ color: 'var(--bp-muted)' }}
+                            >
+                              Clear filters
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-3">
+                          <Multiselect
+                            label="Category"
+                            options={categoryOptions}
+                            selected={selectedCategories}
+                            onChange={setSelectedCategories}
+                            placeholder="Choose categories..."
+                          />
+                          <div>
+                            <label className="mb-2 block text-sm font-medium">Price</label>
+                            <select
+                              value={selectedPrice}
+                              onChange={e => setSelectedPrice(e.target.value)}
+                              className="w-full min-h-[42px] rounded-md border px-3 py-2"
+                              style={{
+                                borderColor: 'var(--bp-secondary)',
+                                background: 'var(--bp-card)',
+                              }}
+                            >
+                              <option value="">All Prices</option>
+                              {priceOptions.filter(Boolean).map(p => (
+                                <option key={p} value={p}>
+                                  {p}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <Multiselect
+                            label="City"
+                            options={cityOptions}
+                            selected={selectedLocations}
+                            onChange={setSelectedLocations}
+                            placeholder="Choose cities..."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -267,79 +355,6 @@ export default function HomeV2() {
               </>
             )}
           </div>
-          {prefsOpen && (
-            <div
-              className="mx-auto mt-4 w-full max-w-md rounded-2xl border p-5 shadow-sm"
-              style={{
-                background: 'var(--bp-card)',
-                borderColor: 'var(--bp-secondary)',
-              }}
-            >
-            <div className="flex items-center justify-between mb-4">
-              <h2 id="prefs-title" className="text-lg font-bold">
-                Preferences
-              </h2>
-              <button
-                type="button"
-                onClick={() => setPrefsOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm font-medium"
-                style={{ color: 'var(--bp-muted)' }}
-              >
-                Done
-              </button>
-            </div>
-
-            {hasActiveFilters && (
-              <div className="mb-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="text-xs underline"
-                  style={{ color: 'var(--bp-muted)' }}
-                >
-                  Clear filters
-                </button>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-4 text-left">
-              <Multiselect
-                label="Category"
-                options={categoryOptions}
-                selected={selectedCategories}
-                onChange={setSelectedCategories}
-                placeholder="Choose categories…"
-              />
-              <div>
-                <label className="text-sm font-medium mb-2 block">Price</label>
-                <select
-                  value={selectedPrice}
-                  onChange={e => setSelectedPrice(e.target.value)}
-                  className="w-full min-h-[44px] rounded-md border px-3 py-2"
-                  style={{
-                    borderColor: 'var(--bp-secondary)',
-                    background: 'var(--bp-card)',
-                  }}
-                >
-                  <option value="">All Prices</option>
-                  {priceOptions.filter(Boolean).map(p => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Multiselect
-                label="City"
-                options={cityOptions}
-                selected={selectedLocations}
-                onChange={setSelectedLocations}
-                placeholder="Choose cities…"
-              />
-            </div>
-          </div>
-          )}
-
           {randomRestaurant && (
             <div
               className="fixed inset-0 z-40 flex items-center justify-center p-4"
@@ -428,8 +443,31 @@ export default function HomeV2() {
           )}
 
           {groupOpen && (
-            <div className="flex justify-center">
-              <GroupSessionHomePanel />
+            <div
+              className="fixed inset-0 z-40 flex items-center justify-center p-4"
+              style={{ background: 'rgba(15, 23, 42, 0.55)' }}
+              onClick={() => setGroupOpen(false)}
+            >
+              <div
+                className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border p-4 shadow-xl"
+                style={{
+                  background: 'var(--bp-card)',
+                  borderColor: 'var(--bp-secondary)',
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="mb-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setGroupOpen(false)}
+                    className="rounded-lg px-3 py-1.5 text-sm font-medium"
+                    style={{ color: 'var(--bp-muted)' }}
+                  >
+                    Close
+                  </button>
+                </div>
+                <GroupSessionHomePanel />
+              </div>
             </div>
           )}
         </div>

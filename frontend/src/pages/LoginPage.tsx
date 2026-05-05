@@ -332,7 +332,13 @@ export default function AuthPage() {
   return (
     <div
       className="flat-background min-h-screen flex items-center justify-center relative"
-      style={{ backgroundImage: "url('/images/default.jpg')" }}>
+      style={{
+        backgroundImage: "url('/images/Home.png')",
+        backgroundSize: '100% 100%',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#d8ecfb',
+      }}>
       <div className="absolute top-4 right-4 z-20">
         <button
           type="button"
