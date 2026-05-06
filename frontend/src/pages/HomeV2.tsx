@@ -212,7 +212,7 @@ export default function HomeV2() {
             )}
           </div>
 
-          <div className="relative z-10 flex flex-col items-center text-center pt-20 sm:pt-24">
+          <div className="relative z-10 flex flex-col items-center text-center pt-30 sm:pt-36">
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div
@@ -222,12 +222,23 @@ export default function HomeV2() {
               </div>
             ) : (
               <>
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">BitePick</h1>
+                <h1
+                  className="text-[48px] font-black tracking-tight"
+                  style={{ fontFamily: "'Nunito', sans-serif", color: '#FFF4E6'}}
+                >
+                  <span className="relative inline-block bite-letter">
+                    B
+                  </span>
+                  <span className="relative inline-block icon">
+                    🍦
+                  </span>
+                  tePick
+                </h1>
                 <p className="mt-2 text-base sm:text-lg max-w-md" style={{ color: 'var(--bp-muted)' }}>
                   Can&apos;t Decide Where to Eat
                 </p>
 
-                <div className="mt-10 flex w-full max-w-sm items-stretch gap-2">
+                <div className="mt-10 flex w-full max-w-xs items-stretch gap-2">
                   <button
                     type="button"
                     onClick={pickRandom}
@@ -334,7 +345,7 @@ export default function HomeV2() {
                 <button
                   type="button"
                   onClick={() => setGroupOpen(prev => !prev)}
-                  className="mt-3 w-full max-w-sm min-h-[48px] rounded-xl border font-semibold transition hover:bg-black/[0.03]"
+                  className="mt-3 w-full max-w-xs min-h-[48px] rounded-xl border font-semibold transition hover:bg-black/[0.03]"
                   style={{
                     borderColor: 'var(--bp-secondary)',
                     background: 'var(--bp-card)',

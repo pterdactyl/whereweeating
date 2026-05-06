@@ -225,3 +225,25 @@
   z-index: -1;
   background: var(--bp-bg);
 }
+
+
+.bite-letter {
+  position: relative;
+  display: inline-block;
+  -webkit-mask-image: linear-gradient(#fff 0 0), url('/images/Bite.svg.svg');
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-size: 100% 100%, 20px 20px;
+  -webkit-mask-position: 0 0, -4px 13px;
+  -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#fff 0 0), url('/images/Bite.svg.svg');
+  mask-repeat: no-repeat, no-repeat;
+  mask-size: 100% 100%, 20px 20px;
+  mask-position: 0 0, -4px 13px;
+  mask-composite: exclude;
+}
+
+.icon {
+  font-size: 0.85em;
+  position: relative;
+  top: -6px;
+}
