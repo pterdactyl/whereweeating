@@ -1,7 +1,8 @@
 import cors from 'cors'
 import crypto from 'node:crypto'
 import dotenv from 'dotenv'
-import db from './db/index.js'
+import db, { type Restaurant, type WeeklyHoursSchedule } from './db/index.js'
+import type { SessionFilters } from './db/groupSessions.js'
 import bcrypt from 'bcryptjs';
 import jwt, { Secret } from 'jsonwebtoken';
 import express, { NextFunction, Request, Response } from 'express';
@@ -13,6 +14,22 @@ import {
 } from './groupDecision/rankRestaurantsForSession.js';
 
 dotenv.config()
+
+function parseWeeklyHoursFromBody(raw: unknown): WeeklyHoursSchedule {
+  if (raw == null || raw === '') return null
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw as WeeklyHoursSchedule
+  if (typeof raw === 'string') {
+    const t = raw.trim()
+    if (!t) return null
+    try {
+      const j = JSON.parse(t) as unknown
+      if (j && typeof j === 'object' && !Array.isArray(j)) return j as WeeklyHoursSchedule
+    } catch {
+      return null
+    }
+  }
+  return null
+}
 
 const app = express()
 app.use((req, res, next) => {
@@ -217,17 +234,24 @@ app.get('/api/restaurants/random', async (req, res) => {
 // POST add a single restaurant manually
 app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req, res) => {
   try {
-    const { name, category, location, price } = req.body;
+    const { name, category, location, price, hours_of_operation, weekly_hours } = req.body;
 
     if (!name || !category || !location || !price) {
       return res.status(400).json({ message: 'Name, location, category, and price are required' });
     }
+
+    const ho =
+      typeof hours_of_operation === 'string' && hours_of_operation.trim()
+        ? hours_of_operation.trim()
+        : null
 
     const created = await db.restaurants.addRestaurant({
       name: String(name).trim(),
       category: String(category).trim(),
       location: String(location).trim(),
       price: String(price).trim(),
+      hours_of_operation: ho,
+      weekly_hours: parseWeeklyHoursFromBody(weekly_hours),
     });
 
     return res.status(201).json(created);
@@ -245,7 +269,7 @@ app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req
 app.patch('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
       const id = req.params.id as string;
-      const { name, category, location, price } = req.body;
+      const { name, category, location, price, hours_of_operation, weekly_hours } = req.body;
 
       if (!name || !category || !location || !price) {
         return res.status(400).json({
@@ -253,12 +277,23 @@ app.patch('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, r
         });
       }
 
-      const updated = await db.restaurants.updateRestaurant(id, {
+      const patch: Partial<Omit<Restaurant, 'id'>> = {
         name: String(name).trim(),
         category: String(category).trim(),
         location: String(location).trim(),
         price: String(price).trim(),
-      });
+      }
+      if (hours_of_operation !== undefined) {
+        patch.hours_of_operation =
+          typeof hours_of_operation === 'string' && hours_of_operation.trim()
+            ? hours_of_operation.trim()
+            : null
+      }
+      if (weekly_hours !== undefined) {
+        patch.weekly_hours = parseWeeklyHoursFromBody(weekly_hours)
+      }
+
+      const updated = await db.restaurants.updateRestaurant(id, patch);
 
       return res.json(updated);
 
@@ -287,9 +322,6 @@ app.delete('/api/restaurants/:id', authenticateToken, requireAdmin, async (req, 
 });
 
 // ======================= GROUP SESSION HELPERS (weighted, pool, shortlist) =======================
-
-type Restaurant = { id: string; name: string; category: string; location: string; price: string };
-type SessionFilters = { categories: string[]; price: string | null; locations: string[] };
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(value ?? null);
@@ -435,11 +467,17 @@ app.patch('/api/group-sessions/:id/host-filters', attachUserFromValidJwt, async 
     if (session.state !== 'lobby') {
       return res.status(400).json({ message: 'Cannot change filters after shortlist is generated' });
     }
-    const filters = req.body as { categories?: string[]; price?: string | null; locations?: string[] };
-    const hostFilters = {
+    const filters = req.body as {
+      categories?: string[];
+      price?: string | null;
+      locations?: string[];
+      prefer_open_now?: boolean;
+    };
+    const hostFilters: SessionFilters = {
       categories: Array.isArray(filters.categories) ? filters.categories : [],
       price: typeof filters.price === 'string' ? filters.price : null,
       locations: Array.isArray(filters.locations) ? filters.locations : [],
+      prefer_open_now: Boolean(filters.prefer_open_now),
     };
     const updated = await db.groupSessions.updateHostFilters(id, hostFilters);
     res.json(updated);
@@ -475,6 +513,7 @@ app.post('/api/group-sessions/:id/filters', async (req, res) => {
         categories?: string[];
         price?: string | null;
         locations?: string[];
+        prefer_open_now?: boolean;
       };
     };
 
@@ -491,6 +530,7 @@ app.post('/api/group-sessions/:id/filters', async (req, res) => {
       categories: filters.categories ?? [],
       price: typeof filters.price === 'string' ? filters.price : null,
       locations: filters.locations ?? [],
+      prefer_open_now: Boolean(filters.prefer_open_now),
     };
 
     // If filters changed for a ready participant, automatically reset them to not ready.

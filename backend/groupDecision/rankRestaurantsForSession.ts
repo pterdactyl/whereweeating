@@ -1,13 +1,8 @@
-import db from '../db/index.js';
+import db, { type Restaurant } from '../db/index.js';
 import type { SessionFilters } from '../db/groupSessions.js';
+import { passesPreferOpenNow } from '../openNow.js';
 
-export type Restaurant = {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  price: string;
-};
+export type { Restaurant };
 
 export type RestaurantRecommendation = {
   restaurantId: string;
@@ -135,6 +130,7 @@ export async function rankRestaurantsForSession(
     categories: Array.isArray(pf.filters.categories) ? pf.filters.categories : [],
     price: pf.filters.price ?? null,
     locations: Array.isArray(pf.filters.locations) ? pf.filters.locations : [],
+    prefer_open_now: Boolean((pf.filters as SessionFilters).prefer_open_now),
   }));
 
   const participantCount = participantPrefs.length;
@@ -144,9 +140,15 @@ export async function rankRestaurantsForSession(
   const likeBonus = typeof options.likeBonus === 'number' ? options.likeBonus : 0.5;
   const likedSet = new Set(session.liked_restaurant_ids ?? []);
 
+  const wantOpenNow = participantPrefs.some(p => p.prefer_open_now);
+  const now = new Date();
+  const poolFiltered = wantOpenNow
+    ? pool.filter(r => passesPreferOpenNow(r.weekly_hours, now))
+    : pool;
+
   const recommendations: RestaurantRecommendation[] = [];
 
-  for (const r of pool) {
+  for (const r of poolFiltered) {
     if (excludeIds.has(r.id)) continue;
 
     let score = 1; // baseline
@@ -202,7 +204,7 @@ export async function rankRestaurantsForSession(
   return {
     sessionId,
     participantCount,
-    poolSize: pool.length,
+    poolSize: poolFiltered.length,
     recommendations,
   };
 }

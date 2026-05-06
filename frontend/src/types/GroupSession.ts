@@ -4,6 +4,7 @@ export type SessionFilters = {
   categories: string[];
   price: string | null;
   locations: string[];
+  prefer_open_now: boolean;
 };
 
 export type GroupSession = {

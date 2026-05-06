@@ -24,6 +24,8 @@ export type SessionFilters = {
   categories: string[];
   price: string | null;
   locations: string[];
+  /** When true, omit restaurants with structured hours that are closed right now (Toronto time). */
+  prefer_open_now: boolean;
 };
 
 export type GroupSession = {
@@ -60,7 +62,19 @@ const defaultHostFilters: SessionFilters = {
   categories: [],
   price: null,
   locations: [],
+  prefer_open_now: false,
 };
+
+function normalizeHostFilters(raw: unknown): SessionFilters {
+  if (!raw || typeof raw !== 'object') return { ...defaultHostFilters };
+  const o = raw as Partial<SessionFilters>;
+  return {
+    categories: Array.isArray(o.categories) ? o.categories : [],
+    price: typeof o.price === 'string' ? o.price : null,
+    locations: Array.isArray(o.locations) ? o.locations : [],
+    prefer_open_now: Boolean(o.prefer_open_now),
+  };
+}
 
 export async function createSession(hostUserId: string): Promise<GroupSession> {
   await deleteExpiredSessions();
@@ -138,7 +152,7 @@ function normalizeSession(row: any): GroupSession {
     result_restaurant_id: row.result_restaurant_id ?? null,
     created_at: row.created_at,
     expires_at: row.expires_at ?? row.created_at,
-    host_filters: row.host_filters ?? defaultHostFilters,
+    host_filters: normalizeHostFilters(row.host_filters),
     shortlist_restaurant_ids: Array.isArray(row.shortlist_restaurant_ids) ? row.shortlist_restaurant_ids : [],
     shown_restaurant_ids: Array.isArray(row.shown_restaurant_ids) ? row.shown_restaurant_ids : [],
     liked_restaurant_ids: Array.isArray(row.liked_restaurant_ids) ? row.liked_restaurant_ids : [],

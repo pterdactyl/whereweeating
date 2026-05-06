@@ -39,6 +39,7 @@ const emptyFilters: SessionFilters = {
   categories: [],
   price: null,
   locations: [],
+  prefer_open_now: false,
 };
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -75,6 +76,12 @@ function CreateOrJoinScreen({ onOpenSession }: CreateOrJoinScreenProps) {
     typeof window !== 'undefined' ? localStorage.getItem('last_group_session_id') : null;
 
   const handleCreate = async () => {
+    const name = joinName.trim();
+    if (!name) {
+      showToast('warning', 'Enter your name');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -103,13 +110,36 @@ function CreateOrJoinScreen({ onOpenSession }: CreateOrJoinScreenProps) {
       }
 
       const session = body.session;
-      if (!session?.id) {
+      if (!session?.id || !session.code) {
         showToast('error', 'Failed to create session');
         return;
       }
       if (typeof body.hostClaimSecret === 'string' && body.hostClaimSecret) {
         setStoredHostClaim(session.id, body.hostClaimSecret);
       }
+
+      const joinRes = await fetch(apiUrl('/api/group-sessions/join'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: session.code.toUpperCase(),
+          name,
+        }),
+      });
+
+      const joinPayload = await joinRes.json().catch(() => ({}));
+
+      if (!joinRes.ok) {
+        showToast(
+          'error',
+          (joinPayload as { message?: string }).message ??
+            `Session created (code ${session.code}) — open Join and enter your name plus that code.`,
+        );
+        return;
+      }
+
+      const joinData = joinPayload as JoinResponse;
+      setStoredParticipantId(session.id, joinData.participant.id);
       try {
         localStorage.setItem('last_group_session_id', session.id);
       } catch (_) {}
@@ -221,6 +251,15 @@ function CreateOrJoinScreen({ onOpenSession }: CreateOrJoinScreenProps) {
                 <p className="text-sm text-gray-700">
                   Create a new group session and share the code with friends.
                 </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Your name</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                    value={joinName}
+                    onChange={e => setJoinName(e.target.value)}
+                    autoComplete="name"
+                  />
+                </div>
                 <button
                   onClick={handleCreate}
                   disabled={isSubmitting}
@@ -404,8 +443,14 @@ function ActiveSessionView({
         if (!restRes.ok) {
           showToastRef.current('error', 'Failed to load restaurants');
         } else {
-          const restaurants: Restaurant[] = await restRes.json();
-          setAllRestaurants(restaurants);
+          const restaurants = (await restRes.json()) as Restaurant[];
+          setAllRestaurants(
+            restaurants.map(r => ({
+              ...r,
+              hours_of_operation: r.hours_of_operation ?? null,
+              weekly_hours: r.weekly_hours ?? null,
+            })),
+          );
         }
 
       } catch {
@@ -438,6 +483,7 @@ function ActiveSessionView({
           categories: Array.isArray(filtersData.filters.categories) ? filtersData.filters.categories : [],
           price: typeof filtersData.filters.price === 'string' ? filtersData.filters.price : null,
           locations: Array.isArray(filtersData.filters.locations) ? filtersData.filters.locations : [],
+          prefer_open_now: Boolean(filtersData.filters.prefer_open_now),
         });
         setSaveState('saved');
       } catch {
@@ -948,6 +994,24 @@ function ActiveSessionView({
                       }}
                       placeholder="Choose cities…"
                     />
+                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white/90 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300"
+                        checked={filters.prefer_open_now}
+                        onChange={e => {
+                          setIsReadyLocal(false);
+                          setFilters(prev => ({ ...prev, prefer_open_now: e.target.checked }));
+                        }}
+                      />
+                      <span className="text-left text-sm text-gray-800">
+                        <span className="font-medium">Prefer open now</span>
+                        <span className="block text-xs text-gray-500">
+                          Skip places with known hours that are closed right now (Toronto time). Places without
+                          structured hours are still included.
+                        </span>
+                      </span>
+                    </label>
                     <div className="flex items-center justify-between gap-3 mt-1">
                       <p className="text-xs text-gray-600">
                         {saveState === 'saving' && 'Saving…'}
@@ -1012,6 +1076,12 @@ function ActiveSessionView({
                             <p className="text-xs text-gray-600 truncate">
                               {r.category} • {r.location} • <span className="font-medium">{r.price}</span>
                             </p>
+                            {r.hours_of_operation?.trim() ? (
+                              <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap break-words">
+                                <span className="font-medium text-gray-700">Hours: </span>
+                                {r.hours_of_operation.trim()}
+                              </p>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
@@ -1088,6 +1158,24 @@ function ActiveSessionView({
                     <p className="text-sm text-gray-600">
                       {finalRestaurant.category} • {finalRestaurant.location} •{' '}
                       <span className="font-semibold">{finalRestaurant.price}</span>
+                    </p>
+                    {finalRestaurant.hours_of_operation?.trim() ? (
+                      <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">
+                        <span className="font-medium">Hours: </span>
+                        {finalRestaurant.hours_of_operation.trim()}
+                      </p>
+                    ) : null}
+                    <p className="mt-3">
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          `${finalRestaurant.name} ${finalRestaurant.location}`,
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-purple-700 hover:text-purple-900 underline underline-offset-2"
+                      >
+                        Open in Maps 🗺️
+                      </a>
                     </p>
                   </div>
                 </div>

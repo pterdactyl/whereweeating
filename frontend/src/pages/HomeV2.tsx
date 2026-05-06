@@ -1,12 +1,13 @@
 import '../styles/App.css';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { FaCog, FaFilter, FaRedoAlt } from 'react-icons/fa';
 import { Restaurant } from '../types/Restaurant';
 import { apiUrl } from '../lib/api';
 import { useToast } from '../components/Toast';
 import Multiselect from '../components/Multiselect';
 import { GroupSessionHomePanel } from './GroupSessionPage';
+import { passesPreferOpenNow } from '../lib/openNow';
+import GearMenuContent from '../components/GearMenuContent';
 
 export default function HomeV2() {
   const { showToast } = useToast();
@@ -21,6 +22,7 @@ export default function HomeV2() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedPrice, setSelectedPrice] = useState('');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [preferOpenNow, setPreferOpenNow] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,8 +31,14 @@ export default function HomeV2() {
         setIsLoading(true);
         const res = await fetch(apiUrl('/api/restaurants'));
         if (res.ok) {
-          const data = await res.json();
-          setAllRestaurants(data);
+          const data = (await res.json()) as Restaurant[];
+          setAllRestaurants(
+            data.map(r => ({
+              ...r,
+              hours_of_operation: r.hours_of_operation ?? null,
+              weekly_hours: r.weekly_hours ?? null,
+            })),
+          );
         } else {
           showToast('error', 'Could not load restaurants from backend');
         }
@@ -129,8 +137,12 @@ export default function HomeV2() {
       });
     }
 
+    if (preferOpenNow) {
+      filtered = filtered.filter(r => passesPreferOpenNow(r.weekly_hours));
+    }
+
     return filtered;
-  }, [allRestaurants, selectedCategories, selectedPrice, selectedLocations]);
+  }, [allRestaurants, selectedCategories, selectedPrice, selectedLocations, preferOpenNow]);
 
   const pickRandom = () => {
     if (filteredRestaurants.length === 0) {
@@ -147,6 +159,7 @@ export default function HomeV2() {
     setSelectedCategories([]);
     setSelectedPrice('');
     setSelectedLocations([]);
+    setPreferOpenNow(false);
     setRandomRestaurant(null);
   };
 
@@ -177,37 +190,15 @@ export default function HomeV2() {
             </button>
             {gearOpen && (
               <div
-                className="absolute right-0 mt-2 min-w-[11rem] rounded-xl border py-1 shadow-lg"
+                className="absolute right-0 mt-2 min-w-[11rem] overflow-hidden rounded-xl border shadow-lg"
                 style={{
                   background: 'var(--bp-card)',
                   borderColor: 'var(--bp-secondary)',
+                  color: 'var(--bp-text)',
                 }}
                 role="menu"
               >
-                <Link
-                  to="/"
-                  role="menuitem"
-                  className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5"
-                  onClick={() => setGearOpen(false)}
-                >
-                  Home
-                </Link>
-                <Link
-                  to="/login"
-                  role="menuitem"
-                  className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5"
-                  onClick={() => setGearOpen(false)}
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/restaurants"
-                  role="menuitem"
-                  className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5"
-                  onClick={() => setGearOpen(false)}
-                >
-                  Manage restaurants
-                </Link>
+                <GearMenuContent onClose={() => setGearOpen(false)} />
               </div>
             )}
           </div>
@@ -336,6 +327,24 @@ export default function HomeV2() {
                             onChange={setSelectedLocations}
                             placeholder="Choose cities..."
                           />
+                          <label className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-4 w-4 shrink-0 rounded"
+                              style={{ borderColor: 'var(--bp-secondary)' }}
+                              checked={preferOpenNow}
+                              onChange={e => setPreferOpenNow(e.target.checked)}
+                            />
+                            <span className="text-left text-sm" style={{ color: 'var(--bp-text)' }}>
+                              <span className="font-medium">Prefer open now</span>
+                              <span
+                                className="block text-xs mt-0.5"
+                                style={{ color: 'var(--bp-muted)' }}
+                              >
+                                Only consider places known to be open right now (Toronto time).
+                              </span>
+                            </span>
+                          </label>
                         </div>
                       </div>
                     )}
@@ -439,6 +448,32 @@ export default function HomeV2() {
                         {randomRestaurant.price}
                       </p>
                     </div>
+                    {randomRestaurant.hours_of_operation?.trim() ? (
+                      <div
+                        className="rounded-lg border p-3"
+                        style={{ background: 'var(--bp-card)', borderColor: 'var(--bp-secondary)' }}
+                      >
+                        <p className="mb-1 text-xs" style={{ color: 'var(--bp-muted)' }}>
+                          Hours
+                        </p>
+                        <p className="whitespace-pre-wrap" style={{ color: 'var(--bp-text)' }}>
+                          {randomRestaurant.hours_of_operation.trim()}
+                        </p>
+                      </div>
+                    ) : null}
+                    <p className="pt-1">
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          `${randomRestaurant.name} ${randomRestaurant.location}`,
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold underline underline-offset-2"
+                        style={{ color: 'var(--bp-text)' }}
+                      >
+                        Open in Maps 🗺️
+                      </a>
+                    </p>
                   </div>
                   <button
                     type="button"

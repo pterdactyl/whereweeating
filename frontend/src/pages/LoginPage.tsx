@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaCog } from 'react-icons/fa';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
+import GearMenuContent from '../components/GearMenuContent';
 import { notifyAuthChange } from '../lib/authSync';
 import { setAuth } from '../lib/auth';
 
@@ -348,16 +349,11 @@ export default function AuthPage() {
           <FaCog className="text-lg" />
         </button>
         {gearOpen && (
-          <div className="absolute right-0 mt-2 min-w-[11rem] rounded-xl border py-1 shadow-lg bg-white" role="menu">
-            <Link to="/" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
-              Home
-            </Link>
-            <Link to="/login" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
-              Login
-            </Link>
-            <Link to="/restaurants" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
-              Manage restaurants
-            </Link>
+          <div
+            className="absolute right-0 mt-2 min-w-[11rem] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg text-gray-900 z-30"
+            role="menu"
+          >
+            <GearMenuContent onClose={() => setGearOpen(false)} />
           </div>
         )}
       </div>

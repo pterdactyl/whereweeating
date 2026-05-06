@@ -2,12 +2,16 @@ import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
 import * as groupSessions from './groupSessions.js'
 
+export type WeeklyHoursSchedule = Record<string, { open: string; close: string }[]> | null
+
 export type Restaurant = {
   id: string
   name: string
   category: string
   location: string
   price: string
+  hours_of_operation: string | null
+  weekly_hours: WeeklyHoursSchedule
 }
 
 export type User = {
@@ -32,10 +36,12 @@ const supabase = createClient(
   SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SUPABASE_KEY,
 )
 
+const RESTAURANT_COLUMNS = 'id,name,category,location,price,hours_of_operation,weekly_hours' as const
+
 async function getRestaurants(): Promise<Restaurant[]> {
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id,name,category,location,price')
+    .select(RESTAURANT_COLUMNS)
 
   if (error) throw error
   return (data ?? []) as Restaurant[]
@@ -44,8 +50,12 @@ async function getRestaurants(): Promise<Restaurant[]> {
 async function addRestaurant(input: Omit<Restaurant, 'id'>): Promise<Restaurant> {
   const { data, error } = await supabase
     .from('restaurants')
-    .insert(input)
-    .select('id,name,category,location,price')
+    .insert({
+      ...input,
+      hours_of_operation: input.hours_of_operation ?? null,
+      weekly_hours: input.weekly_hours ?? null,
+    })
+    .select(RESTAURANT_COLUMNS)
     .single()
 
   if (error) throw error
@@ -57,7 +67,7 @@ async function updateRestaurant(id: string, patch: Partial<Omit<Restaurant, 'id'
     .from('restaurants')
     .update(patch)
     .eq('id', id)
-    .select('id,name,category,location,price')
+    .select(RESTAURANT_COLUMNS)
     .single()
 
   if (error) throw error

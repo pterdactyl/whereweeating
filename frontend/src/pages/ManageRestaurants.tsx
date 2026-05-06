@@ -1,10 +1,199 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Typography from '@mui/material/Typography';
+import { ThemeProvider, createTheme, useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { FaCog } from 'react-icons/fa';
 import type { Restaurant } from '../types/Restaurant';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
+import GearMenuContent from '../components/GearMenuContent';
 import { clearAuth, getAuthEmail, getAuthToken } from '../lib/auth';
+import {
+  HoursEditor,
+  emptyWeeklyHours,
+  validateWeeklyHours,
+  dbWeeklyHoursToNamed,
+  namedToDbWeeklyHours,
+  weeklyNamedToDisplayLines,
+  WEEKDAYS,
+  type WeeklyHoursNamed,
+} from '../openingHours';
+
+const manageMuiTheme = createTheme();
+const EDITOR_TZ = 'America/Toronto';
+
+function hasWeeklySchedule(named: WeeklyHoursNamed): boolean {
+  return WEEKDAYS.some(d => (named[d]?.length ?? 0) > 0);
+}
+
+function ManageScheduleDialogs({
+  addOpen,
+  editOpen,
+  onCloseAdd,
+  onCloseEdit,
+  newWeeklyNamed,
+  setNewWeeklyNamed,
+  editWeeklyNamed,
+  setEditWeeklyNamed,
+  setNewData,
+  setEditing,
+}: {
+  addOpen: boolean;
+  editOpen: boolean;
+  onCloseAdd: () => void;
+  onCloseEdit: () => void;
+  newWeeklyNamed: WeeklyHoursNamed;
+  setNewWeeklyNamed: (v: WeeklyHoursNamed) => void;
+  editWeeklyNamed: WeeklyHoursNamed;
+  setEditWeeklyNamed: (v: WeeklyHoursNamed) => void;
+  setNewData: Dispatch<
+    SetStateAction<{
+      name: string;
+      category: string;
+      location: string;
+      price: string;
+      hours_of_operation: string;
+    }>
+  >;
+  setEditing: Dispatch<SetStateAction<Restaurant | null>>;
+}) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+
+  return (
+    <>
+      <Dialog
+        open={addOpen}
+        onClose={onCloseAdd}
+        fullScreen={fullScreen}
+        fullWidth
+        maxWidth="sm"
+        scroll="paper"
+        slotProps={{
+          paper: {
+            sx: {
+              maxHeight: fullScreen ? '100%' : 'min(92dvh, 720px)',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ pr: 6, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>Weekly schedule</DialogTitle>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 3, pb: 1, pt: 0, lineHeight: 1.45 }}>
+          Swipe the day tabs on a small screen. Used for “open now” in Toronto time.
+        </Typography>
+        <DialogContent
+          dividers
+          sx={{
+            flex: '1 1 auto',
+            overflow: 'auto',
+            px: { xs: 1.25, sm: 2 },
+            py: { xs: 1.5, sm: 2 },
+          }}
+        >
+          <HoursEditor value={newWeeklyNamed} onChange={setNewWeeklyNamed} timeZone={EDITOR_TZ} />
+        </DialogContent>
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1.5,
+            flexDirection: { xs: 'column-reverse', sm: 'row' },
+            alignItems: 'stretch',
+            gap: 1,
+          }}
+        >
+          <Button fullWidth={fullScreen} variant="outlined" onClick={onCloseAdd}>
+            Cancel
+          </Button>
+          <Button
+            fullWidth={fullScreen}
+            variant="text"
+            size="small"
+            onClick={() =>
+              setNewData(prev => ({
+                ...prev,
+                hours_of_operation: weeklyNamedToDisplayLines(newWeeklyNamed),
+              }))
+            }
+          >
+            Copy lines to customer hours
+          </Button>
+          <Button fullWidth={fullScreen} variant="contained" onClick={onCloseAdd}>
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={editOpen}
+        onClose={onCloseEdit}
+        fullScreen={fullScreen}
+        fullWidth
+        maxWidth="sm"
+        scroll="paper"
+        slotProps={{
+          paper: {
+            sx: {
+              maxHeight: fullScreen ? '100%' : 'min(92dvh, 720px)',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ pr: 6, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>Edit weekly schedule</DialogTitle>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 3, pb: 1, pt: 0, lineHeight: 1.45 }}>
+          Changes apply when you tap Save on the restaurant card.
+        </Typography>
+        <DialogContent
+          dividers
+          sx={{
+            flex: '1 1 auto',
+            overflow: 'auto',
+            px: { xs: 1.25, sm: 2 },
+            py: { xs: 1.5, sm: 2 },
+          }}
+        >
+          <HoursEditor value={editWeeklyNamed} onChange={setEditWeeklyNamed} timeZone={EDITOR_TZ} />
+        </DialogContent>
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1.5,
+            flexDirection: { xs: 'column-reverse', sm: 'row' },
+            alignItems: 'stretch',
+            gap: 1,
+          }}
+        >
+          <Button fullWidth={fullScreen} variant="outlined" onClick={onCloseEdit}>
+            Close
+          </Button>
+          <Button
+            fullWidth={fullScreen}
+            variant="text"
+            size="small"
+            onClick={() =>
+              setEditing(prev =>
+                prev ? { ...prev, hours_of_operation: weeklyNamedToDisplayLines(editWeeklyNamed) } : prev,
+              )
+            }
+          >
+            Copy lines to customer hours
+          </Button>
+          <Button fullWidth={fullScreen} variant="contained" onClick={onCloseEdit}>
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+}
 
 function ManageRestaurants() {
   const { showToast } = useToast();
@@ -27,19 +216,35 @@ function ManageRestaurants() {
     category: string;
     location: string;
     price: string;
+    hours_of_operation: string;
   }>({
     name: '',
     category: '',
     location: '',
-    price: ''
+    price: '$',
+    hours_of_operation: '',
   });
+  const [newWeeklyNamed, setNewWeeklyNamed] = useState<WeeklyHoursNamed>(() => emptyWeeklyHours());
+  const [editWeeklyNamed, setEditWeeklyNamed] = useState<WeeklyHoursNamed>(() => emptyWeeklyHours());
+  const [addScheduleOpen, setAddScheduleOpen] = useState(false);
+  const [editScheduleOpen, setEditScheduleOpen] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setEditScheduleOpen(false);
+  }, [editing]);
 
   useEffect(() => {
     setIsLoading(true);
     fetch(apiUrl(`/api/restaurants`))
       .then(res => res.json())
-      .then(data => {
-        setRestaurants(data);
+      .then((data: Restaurant[]) => {
+        setRestaurants(
+          (data ?? []).map(r => ({
+            ...r,
+            hours_of_operation: r.hours_of_operation ?? null,
+            weekly_hours: r.weekly_hours ?? null,
+          })),
+        );
         setIsLoading(false);
       })
       .catch(() => {
@@ -55,6 +260,14 @@ function ManageRestaurants() {
       return;
     }
 
+    const schedErr = validateWeeklyHours(newWeeklyNamed);
+    if (schedErr) {
+      showToast('error', schedErr);
+      return;
+    }
+
+    const wh = namedToDbWeeklyHours(newWeeklyNamed);
+
     try {
       setIsSubmitting(true);
       const token = getAuthToken();
@@ -65,7 +278,14 @@ function ManageRestaurants() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newData),
+        body: JSON.stringify({
+          name: newData.name.trim(),
+          category: newData.category.trim(),
+          location: newData.location.trim(),
+          price: newData.price,
+          hours_of_operation: newData.hours_of_operation.trim() || null,
+          weekly_hours: wh,
+        }),
       });
 
       const text = await res.text();
@@ -101,7 +321,14 @@ function ManageRestaurants() {
       }
 
       setRestaurants(prev => [...prev, data]);
-      setNewData({ name: "", category: "", location: "", price: "$" });
+      setNewData({
+        name: '',
+        category: '',
+        location: '',
+        price: '$',
+        hours_of_operation: '',
+      });
+      setNewWeeklyNamed(emptyWeeklyHours());
       showToast('success', 'Restaurant added successfully!');
     } catch (e) {
       showToast('error', "Network error. Try again.");
@@ -144,6 +371,14 @@ function ManageRestaurants() {
       return;
     }
 
+    const schedErr = validateWeeklyHours(editWeeklyNamed);
+    if (schedErr) {
+      showToast('error', schedErr);
+      return;
+    }
+
+    const wh = namedToDbWeeklyHours(editWeeklyNamed);
+
     try {
       setIsSubmitting(true);
       const token = getAuthToken();
@@ -153,13 +388,22 @@ function ManageRestaurants() {
         return;
       }
 
+      const hoursText = (editing.hours_of_operation ?? '').trim();
+
       const res = await fetch(apiUrl(`/api/restaurants/${editing.id}`), {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify(editing)
+        body: JSON.stringify({
+          name: editing.name.trim(),
+          category: editing.category.trim(),
+          location: editing.location.trim(),
+          price: editing.price,
+          hours_of_operation: hoursText || null,
+          weekly_hours: wh,
+        }),
       });
 
       const text = await res.text();
@@ -198,6 +442,7 @@ function ManageRestaurants() {
 
       const updated = data || await res.json();
       setRestaurants(prev => prev.map(r => r.id === editing.id ? updated : r));
+      setEditWeeklyNamed(emptyWeeklyHours());
       setEditing(null);
       showToast('success', 'Restaurant updated successfully!');
     } catch (e) {
@@ -209,10 +454,16 @@ function ManageRestaurants() {
 
   const handleEditClick = (r: Restaurant) => {
     console.log("Editing ID:", r.id);
-    setEditing(r);
+    setEditing({
+      ...r,
+      hours_of_operation: r.hours_of_operation,
+      weekly_hours: r.weekly_hours,
+    });
+    setEditWeeklyNamed(dbWeeklyHoursToNamed(r.weekly_hours));
   };
 
   return (
+    <ThemeProvider theme={manageMuiTheme}>
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex justify-end mb-2">
@@ -225,16 +476,11 @@ function ManageRestaurants() {
               <FaCog className="text-lg" />
             </button>
             {gearOpen && (
-              <div className="absolute right-0 mt-2 min-w-[11rem] rounded-xl border py-1 shadow-lg bg-white z-20" role="menu">
-                <Link to="/" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
-                  Home
-                </Link>
-                <Link to="/login" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
-                  Login
-                </Link>
-                <Link to="/restaurants" role="menuitem" className="block px-4 py-2.5 text-sm font-medium hover:bg-black/5" onClick={() => setGearOpen(false)}>
-                  Manage restaurants
-                </Link>
+              <div
+                className="absolute right-0 mt-2 min-w-[11rem] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg text-gray-900 z-30"
+                role="menu"
+              >
+                <GearMenuContent onClose={() => setGearOpen(false)} />
               </div>
             )}
           </div>
@@ -248,7 +494,7 @@ function ManageRestaurants() {
         ) : (
           <>
             {isLoggedIn && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
                 <h3 className="text-xl font-semibold mb-4">Add New Restaurant</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
@@ -299,6 +545,44 @@ function ManageRestaurants() {
                       <option value="$$$$">$$$$</option>
                       <option value="N/A">N/A</option>
                     </select>
+                  </div>
+                  <div className="md:col-span-2 lg:col-span-4 space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Customer-facing hours (optional)</label>
+                    <p className="text-xs text-gray-500">
+                      Shown on picks and group shortlist. You can type free text or generate a draft from the weekly
+                      schedule below.
+                    </p>
+                    <textarea
+                      placeholder={'e.g. Mon–Fri 11:30–22:00'}
+                      rows={2}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                      value={newData.hours_of_operation}
+                      onChange={e => setNewData({ ...newData, hours_of_operation: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2 lg:col-span-4">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900">Weekly schedule (optional)</p>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                            Tap to edit in a focused window—full-screen on phones so it doesn’t stretch the page.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          {hasWeeklySchedule(newWeeklyNamed) ? (
+                            <span className="text-xs font-medium text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full">
+                              Schedule saved in form
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500 px-2.5 py-1">None yet</span>
+                          )}
+                          <Button variant="contained" size="small" onClick={() => setAddScheduleOpen(true)}>
+                            Edit schedule
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <button
@@ -386,6 +670,52 @@ function ManageRestaurants() {
                             <option>N/A</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Customer-facing hours (optional)
+                          </label>
+                          <p className="text-xs text-gray-500 mb-1">
+                            Shown to diners in the app. Edit freely or generate from the schedule below.
+                          </p>
+                          <textarea
+                            rows={2}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={editing.hours_of_operation ?? ''}
+                            onChange={e =>
+                              setEditing({
+                                ...editing,
+                                hours_of_operation: e.target.value.length ? e.target.value : null,
+                              })
+                            }
+                          />
+                          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                            <button
+                              type="button"
+                              className="text-sm font-medium text-blue-600 hover:text-blue-800 text-left"
+                              onClick={() =>
+                                setEditing({
+                                  ...editing,
+                                  hours_of_operation: weeklyNamedToDisplayLines(editWeeklyNamed),
+                                })
+                              }
+                            >
+                              Fill customer hours from schedule
+                            </button>
+                            <span className="hidden sm:inline text-gray-300">|</span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50"
+                              onClick={() => setEditScheduleOpen(true)}
+                            >
+                              Edit weekly schedule…
+                            </button>
+                            {hasWeeklySchedule(editWeeklyNamed) ? (
+                              <span className="text-xs font-medium text-emerald-700">Schedule configured</span>
+                            ) : (
+                              <span className="text-xs text-gray-500">No schedule</span>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex gap-2 pt-2">
                           <button
                             type="button"
@@ -396,7 +726,11 @@ function ManageRestaurants() {
                             {isSubmitting ? 'Saving...' : 'Save'}
                           </button>
                           <button
-                            onClick={() => setEditing(null)}
+                            type="button"
+                            onClick={() => {
+                              setEditing(null);
+                              setEditWeeklyNamed(emptyWeeklyHours());
+                            }}
                             disabled={isSubmitting}
                             className="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
                           >
@@ -412,6 +746,16 @@ function ManageRestaurants() {
                             <p><span className="font-medium">Category:</span> {r.category}</p>
                             <p><span className="font-medium">Location:</span> {r.location}</p>
                             <p><span className="font-medium">Price:</span> <span className="font-semibold text-gray-900">{r.price}</span></p>
+                            {r.hours_of_operation?.trim() ? (
+                              <p className="text-gray-700 whitespace-pre-wrap">
+                                <span className="font-medium">Hours:</span> {r.hours_of_operation.trim()}
+                              </p>
+                            ) : null}
+                            <p className="text-xs text-gray-500">
+                              {r.weekly_hours && Object.keys(r.weekly_hours).length > 0
+                                ? 'Weekly schedule saved (used for open-now).'
+                                : 'No weekly schedule — open-now uses “unknown hours” fallback.'}
+                            </p>
                           </div>
                         </div>
                         {isAdmin && (
@@ -439,6 +783,19 @@ function ManageRestaurants() {
             )}
           </>
         )}
+
+        <ManageScheduleDialogs
+          addOpen={addScheduleOpen}
+          editOpen={editScheduleOpen}
+          onCloseAdd={() => setAddScheduleOpen(false)}
+          onCloseEdit={() => setEditScheduleOpen(false)}
+          newWeeklyNamed={newWeeklyNamed}
+          setNewWeeklyNamed={setNewWeeklyNamed}
+          editWeeklyNamed={editWeeklyNamed}
+          setEditWeeklyNamed={setEditWeeklyNamed}
+          setNewData={setNewData}
+          setEditing={setEditing}
+        />
 
         {deleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -468,6 +825,7 @@ function ManageRestaurants() {
         )}
       </div>
     </div>
+    </ThemeProvider>
   );
 }
 
