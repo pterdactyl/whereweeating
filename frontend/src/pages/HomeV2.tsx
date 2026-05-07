@@ -166,6 +166,77 @@ export default function HomeV2() {
   const filteredCount = filteredRestaurants.length;
   const hasActiveFilters =
     selectedCategories.length > 0 || !!selectedPrice || selectedLocations.length > 0;
+  const activeFilterTypes =
+    (selectedCategories.length > 0 ? 1 : 0) +
+    (selectedLocations.length > 0 ? 1 : 0) +
+    (selectedPrice ? 1 : 0) +
+    (preferOpenNow ? 1 : 0);
+
+  const clearFiltersRow = hasActiveFilters && (
+    <div className="mb-2 flex justify-end lg:mb-3">
+      <button
+        type="button"
+        onClick={clearFilters}
+        className="text-xs underline"
+        style={{ color: 'var(--bp-muted)' }}
+      >
+        Clear all
+      </button>
+    </div>
+  );
+
+  const filterFields = (
+    <div className="flex flex-col gap-2 text-left lg:gap-2.5">
+      <Multiselect
+        label="Category"
+        options={categoryOptions}
+        selected={selectedCategories}
+        onChange={setSelectedCategories}
+        placeholder="Choose categories..."
+      />
+      <div>
+        <label className="mb-1 block text-sm font-medium lg:mb-2">Price</label>
+        <select
+          value={selectedPrice}
+          onChange={e => setSelectedPrice(e.target.value)}
+          className="w-full min-h-[42px] rounded-md border px-2.5 py-1.5 lg:min-h-[42px] lg:px-3 lg:py-2"
+          style={{
+            borderColor: 'var(--bp-secondary)',
+            background: 'var(--bp-card)',
+          }}
+        >
+          <option value="">All Prices</option>
+          {priceOptions.filter(Boolean).map(p => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+      <Multiselect
+        label="City"
+        options={cityOptions}
+        selected={selectedLocations}
+        onChange={setSelectedLocations}
+        placeholder="Choose cities..."
+      />
+      <label className="flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 lg:gap-3 lg:px-3 lg:py-2.5">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded"
+          style={{ borderColor: 'var(--bp-secondary)' }}
+          checked={preferOpenNow}
+          onChange={e => setPreferOpenNow(e.target.checked)}
+        />
+        <span className="text-left text-sm" style={{ color: 'var(--bp-text)' }}>
+          <span className="font-medium">Prefer open now</span>
+          <span className="mt-0.5 block text-xs leading-snug" style={{ color: 'var(--bp-muted)' }}>
+            Toronto time.
+          </span>
+        </span>
+      </label>
+    </div>
+  );
 
   return (
     <div className="page home-page">
@@ -203,7 +274,7 @@ export default function HomeV2() {
             )}
           </div>
 
-          <div className="relative z-10 flex flex-col items-center text-center pt-30 sm:pt-36">
+          <div className="relative z-10 flex flex-col items-center text-center pt-24 sm:pt-32 lg:pt-36">
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div
@@ -214,8 +285,8 @@ export default function HomeV2() {
             ) : (
               <>
                 <h1
-                  className="text-[48px] font-black tracking-tight"
-                  style={{ fontFamily: "'Nunito', sans-serif", color: '#FFF4E6'}}
+                  className="bp-title-outline text-[48px] font-black tracking-tight"
+                  style={{ fontFamily: "'Nunito', sans-serif", color: '#FFF4E6' }}
                 >
                   <span className="relative inline-block bite-letter">
                     B
@@ -229,140 +300,124 @@ export default function HomeV2() {
                   Can&apos;t Decide Where to Eat
                 </p>
 
-                <div className="mt-10 flex w-full max-w-xs items-stretch gap-2">
-                  <button
-                    type="button"
-                    onClick={pickRandom}
-                    disabled={filteredCount === 0}
-                    className="flex-1 min-h-[48px] rounded-xl font-semibold shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{
-                      background: filteredCount === 0 ? '#9CA3AF' : 'var(--bp-accent)',
-                      color: '#111827',
-                    }}
-                  >
-                    {filteredCount === 0 ? 'No matches' : 'Pick for Me'}
-                  </button>
-                  <div ref={prefsRef} className="relative shrink-0">
+                <div
+                  className="mx-auto mt-6 flex flex-col gap-2 px-2 sm:mt-8 sm:gap-3 sm:px-1 lg:mt-10"
+                  style={{
+                    width: 'min(100%, clamp(16.5rem, calc(12rem + 18vw), 22rem))',
+                  }}
+                >
+                  <div className="flex min-w-0 items-stretch gap-1.5 sm:gap-2">
                     <button
                       type="button"
-                      onClick={() => setPrefsOpen(prev => !prev)}
-                      className="flex h-12 w-12 items-center justify-center rounded-xl border transition hover:bg-black/[0.03]"
+                      onClick={pickRandom}
+                      disabled={filteredCount === 0}
+                      className="min-h-[44px] min-w-0 flex-1 rounded-xl px-3.5 py-2.5 text-[0.9375rem] font-semibold shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[48px] sm:px-4 sm:text-base"
+                      style={{
+                        background: filteredCount === 0 ? '#9CA3AF' : 'var(--bp-accent)',
+                        color: '#111827',
+                      }}
+                    >
+                      {filteredCount === 0 ? 'No matches' : 'Pick for Me'}
+                    </button>
+                    <div ref={prefsRef} className="relative hidden shrink-0 sm:block">
+                      <button
+                        type="button"
+                        onClick={() => setPrefsOpen(prev => !prev)}
+                        className="flex h-[44px] w-[42px] shrink-0 items-center justify-center rounded-xl border transition hover:bg-black/[0.03] max-[380px]:w-10 max-[380px]:min-w-[2.5rem] sm:h-12 sm:w-12 sm:min-w-12"
+                        style={{
+                          borderColor: 'var(--bp-secondary)',
+                          background: 'var(--bp-card)',
+                          color: 'var(--bp-text)',
+                        }}
+                        aria-label="Open filters panel"
+                        aria-expanded={prefsOpen}
+                      >
+                        <FaFilter className="text-sm opacity-80" />
+                      </button>
+
+                      {prefsOpen && (
+                        <div
+                          className="absolute top-full right-0 z-50 mt-1.5 w-[min(19rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] rounded-2xl border p-3 text-left shadow-xl lg:left-full lg:right-auto lg:top-1/2 lg:mt-0 lg:ml-2 lg:w-[19rem] lg:max-w-none lg:-translate-y-1/2 lg:p-4"
+                          style={{
+                            background: 'var(--bp-card)',
+                            borderColor: 'var(--bp-secondary)',
+                          }}
+                        >
+                          <div className="mb-2 flex items-center justify-between lg:mb-3">
+                            <h2 className="text-sm font-bold lg:text-base">Filters</h2>
+                            <button
+                              type="button"
+                              onClick={() => setPrefsOpen(false)}
+                              className="rounded-lg px-2 py-1 text-xs font-medium lg:text-sm"
+                              style={{ color: 'var(--bp-muted)' }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                          {clearFiltersRow}
+                          {filterFields}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <details className="group sm:hidden [&_summary::-webkit-details-marker]:hidden">
+                    <summary
+                      className="flex min-h-[44px] list-none cursor-pointer items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition hover:bg-black/[0.03]"
                       style={{
                         borderColor: 'var(--bp-secondary)',
                         background: 'var(--bp-card)',
                         color: 'var(--bp-text)',
                       }}
-                      aria-label="Preferences and filters"
-                      aria-expanded={prefsOpen}
                     >
-                      <FaFilter className="text-sm opacity-80" />
-                    </button>
-
-                    {prefsOpen && (
-                      <div
-                        className="absolute left-full top-1/2 z-40 ml-2 w-[19rem] -translate-y-1/2 rounded-2xl border p-4 text-left shadow-lg"
-                        style={{
-                          background: 'var(--bp-card)',
-                          borderColor: 'var(--bp-secondary)',
-                        }}
-                      >
-                        <div className="mb-3 flex items-center justify-between">
-                          <h2 id="prefs-title" className="text-base font-bold">
-                            Preferences
-                          </h2>
-                          <button
-                            type="button"
-                            onClick={() => setPrefsOpen(false)}
-                            className="rounded-lg px-2 py-1 text-sm font-medium"
-                            style={{ color: 'var(--bp-muted)' }}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <FaFilter className="shrink-0 text-sm opacity-80" aria-hidden />
+                        Filters
+                        {activeFilterTypes > 0 && (
+                          <span
+                            className="rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none"
+                            style={{
+                              background: 'var(--bp-accent)',
+                              color: '#111827',
+                            }}
                           >
-                            Done
-                          </button>
-                        </div>
-
-                        {hasActiveFilters && (
-                          <div className="mb-3 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={clearFilters}
-                              className="text-xs underline"
-                              style={{ color: 'var(--bp-muted)' }}
-                            >
-                              Clear filters
-                            </button>
-                          </div>
+                            {activeFilterTypes}
+                          </span>
                         )}
+                      </span>
+                      <span
+                        className="shrink-0 text-xs opacity-60 transition group-open:rotate-180"
+                        style={{ color: 'var(--bp-muted)' }}
+                        aria-hidden
+                      >
+                        ▼
+                      </span>
+                    </summary>
+                    <div
+                      className="mt-2 rounded-xl border p-3"
+                      style={{
+                        background: 'var(--bp-card)',
+                        borderColor: 'var(--bp-secondary)',
+                      }}
+                    >
+                      {clearFiltersRow}
+                      {filterFields}
+                    </div>
+                  </details>
 
-                        <div className="flex flex-col gap-3">
-                          <Multiselect
-                            label="Category"
-                            options={categoryOptions}
-                            selected={selectedCategories}
-                            onChange={setSelectedCategories}
-                            placeholder="Choose categories..."
-                          />
-                          <div>
-                            <label className="mb-2 block text-sm font-medium">Price</label>
-                            <select
-                              value={selectedPrice}
-                              onChange={e => setSelectedPrice(e.target.value)}
-                              className="w-full min-h-[42px] rounded-md border px-3 py-2"
-                              style={{
-                                borderColor: 'var(--bp-secondary)',
-                                background: 'var(--bp-card)',
-                              }}
-                            >
-                              <option value="">All Prices</option>
-                              {priceOptions.filter(Boolean).map(p => (
-                                <option key={p} value={p}>
-                                  {p}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <Multiselect
-                            label="City"
-                            options={cityOptions}
-                            selected={selectedLocations}
-                            onChange={setSelectedLocations}
-                            placeholder="Choose cities..."
-                          />
-                          <label className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5">
-                            <input
-                              type="checkbox"
-                              className="mt-0.5 h-4 w-4 shrink-0 rounded"
-                              style={{ borderColor: 'var(--bp-secondary)' }}
-                              checked={preferOpenNow}
-                              onChange={e => setPreferOpenNow(e.target.checked)}
-                            />
-                            <span className="text-left text-sm" style={{ color: 'var(--bp-text)' }}>
-                              <span className="font-medium">Prefer open now</span>
-                              <span
-                                className="block text-xs mt-0.5"
-                                style={{ color: 'var(--bp-muted)' }}
-                              >
-                                Only consider places known to be open right now (Toronto time).
-                              </span>
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGroupOpen(prev => !prev)}
+                    className="mt-1 w-full min-h-[46px] rounded-xl border px-3.5 py-2.5 text-[0.9375rem] font-semibold transition hover:bg-black/[0.03] sm:mt-2 sm:min-h-[48px] sm:px-4 sm:text-base"
+                    style={{
+                      borderColor: 'var(--bp-secondary)',
+                      background: 'var(--bp-card)',
+                      color: 'var(--bp-text)',
+                    }}
+                  >
+                    Decide with friends
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setGroupOpen(prev => !prev)}
-                  className="mt-3 w-full max-w-xs min-h-[48px] rounded-xl border font-semibold transition hover:bg-black/[0.03]"
-                  style={{
-                    borderColor: 'var(--bp-secondary)',
-                    background: 'var(--bp-card)',
-                    color: 'var(--bp-text)',
-                  }}
-                >
-                  Decide with friends
-                </button>
 
                 {hasActiveFilters && (
                   <p className="mt-4 text-xs" style={{ color: 'var(--bp-muted)' }}>
