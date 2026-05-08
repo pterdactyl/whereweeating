@@ -8,6 +8,11 @@ import Multiselect from '../components/Multiselect';
 import { GroupSessionHomePanel } from './GroupSessionPage';
 import { passesPreferOpenNow } from '../lib/openNow';
 import GearMenuContent from '../components/GearMenuContent';
+import {
+  type ApiRestaurantRow,
+  formatRatingLine,
+  mapRestaurantFromApi,
+} from '../lib/formatRestaurantRating';
 
 export default function HomeV2() {
   const { showToast } = useToast();
@@ -31,14 +36,8 @@ export default function HomeV2() {
         setIsLoading(true);
         const res = await fetch(apiUrl('/api/restaurants'));
         if (res.ok) {
-          const data = (await res.json()) as Restaurant[];
-          setAllRestaurants(
-            data.map(r => ({
-              ...r,
-              hours_of_operation: r.hours_of_operation ?? null,
-              weekly_hours: r.weekly_hours ?? null,
-            })),
-          );
+          const data = (await res.json()) as ApiRestaurantRow[];
+          setAllRestaurants(data.map(mapRestaurantFromApi));
         } else {
           showToast('error', 'Could not load restaurants from backend');
         }
@@ -114,6 +113,161 @@ export default function HomeV2() {
       .map(s => s.trim())
       .filter(Boolean);
 
+  const TORONTO_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+  type NormalizedInterval = { open: string; close: string; isOvernight: boolean };
+
+  function parseHm(hm: string): number | null {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(hm.trim());
+    if (!match) return null;
+    const h = Number(match[1]);
+    const m = Number(match[2]);
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return h * 60 + m;
+  }
+
+  function getTorontoDayAndMinutes(date = new Date()): { day: number; minutes: number } {
+    const weekday = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Toronto',
+      weekday: 'short',
+    }).format(date);
+    const day = TORONTO_DAY_LABELS.indexOf(weekday as (typeof TORONTO_DAY_LABELS)[number]);
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Toronto',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+    let hour = 0;
+    let minute = 0;
+    for (const p of parts) {
+      if (p.type === 'hour') hour = Number(p.value);
+      if (p.type === 'minute') minute = Number(p.value);
+    }
+
+    return { day: day >= 0 ? day : 0, minutes: hour * 60 + minute };
+  }
+
+  function normalizeWeeklySchedule(raw: unknown): Record<number, NormalizedInterval[]> {
+    const out: Record<number, NormalizedInterval[]> = {};
+
+    if (Array.isArray(raw)) {
+      for (const row of raw) {
+        if (!row || typeof row !== 'object') continue;
+        const day = (row as { day?: unknown }).day;
+        if (typeof day !== 'number' || day < 0 || day > 6) continue;
+        const intervals = Array.isArray((row as { intervals?: unknown }).intervals)
+          ? (row as { intervals: unknown[] }).intervals
+          : [];
+        out[day] = intervals
+          .map(item => {
+            if (!item || typeof item !== 'object') return null;
+            const start = (item as { start?: unknown }).start;
+            const end = (item as { end?: unknown }).end;
+            if (typeof start !== 'string' || typeof end !== 'string') return null;
+            return {
+              open: start,
+              close: end,
+              isOvernight: Boolean((item as { isOvernight?: unknown }).isOvernight),
+            };
+          })
+          .filter((v): v is NormalizedInterval => Boolean(v));
+      }
+      return out;
+    }
+
+    if (!raw || typeof raw !== 'object') {
+      return out;
+    }
+
+    for (let day = 0; day <= 6; day += 1) {
+      const intervalsRaw = (raw as Record<string, unknown>)[String(day)];
+      if (!Array.isArray(intervalsRaw)) continue;
+      out[day] = intervalsRaw
+        .map(item => {
+          if (!item || typeof item !== 'object') return null;
+          const open = (item as { open?: unknown }).open;
+          const close = (item as { close?: unknown }).close;
+          if (typeof open !== 'string' || typeof close !== 'string') return null;
+          return { open, close, isOvernight: parseHm(close) !== null && parseHm(open) !== null && parseHm(close)! <= parseHm(open)! };
+        })
+        .filter((v): v is NormalizedInterval => Boolean(v));
+    }
+
+    return out;
+  }
+
+  function getTodayHoursDisplay(restaurant: Restaurant): {
+    statusText: string;
+    isOpen: boolean | null;
+    todayLine: string | null;
+  } {
+    const schedule = normalizeWeeklySchedule(restaurant.weekly_hours);
+    const { day, minutes } = getTorontoDayAndMinutes();
+    const today = schedule[day] ?? [];
+    const prevDay = schedule[(day + 6) % 7] ?? [];
+
+    let openNow = false;
+    for (const iv of today) {
+      const open = parseHm(iv.open);
+      const close = parseHm(iv.close);
+      if (open === null || close === null) continue;
+      if (iv.isOvernight || close <= open) {
+        if (minutes >= open || minutes < close) {
+          openNow = true;
+          break;
+        }
+      } else if (minutes >= open && minutes < close) {
+        openNow = true;
+        break;
+      }
+    }
+
+    if (!openNow) {
+      for (const iv of prevDay) {
+        if (!iv.isOvernight) continue;
+        const close = parseHm(iv.close);
+        if (close !== null && minutes < close) {
+          openNow = true;
+          break;
+        }
+      }
+    }
+
+    if (today.length > 0) {
+      const ranges = today.map(iv => `${iv.open}-${iv.close}`).join(', ');
+      return {
+        statusText: openNow ? 'Open now' : 'Closed now',
+        isOpen: openNow,
+        todayLine: `${TORONTO_DAY_LABELS[day]}: ${ranges}`,
+      };
+    }
+
+    if (restaurant.hours_of_operation?.trim()) {
+      const dayPrefix = `${TORONTO_DAY_LABELS[day]}:`;
+      const parts = restaurant.hours_of_operation
+        .split('|')
+        .map(s => s.trim())
+        .filter(Boolean);
+      const todayPart = parts.find(p => p.startsWith(dayPrefix)) ?? null;
+      if (todayPart) {
+        const isClosed = /closed/i.test(todayPart);
+        return {
+          statusText: isClosed ? 'Closed today' : 'Hours available',
+          isOpen: isClosed ? false : null,
+          todayLine: todayPart,
+        };
+      }
+    }
+
+    return {
+      statusText: 'Hours unavailable',
+      isOpen: null,
+      todayLine: null,
+    };
+  }
+
   const filteredRestaurants = useMemo((): Restaurant[] => {
     let filtered = [...allRestaurants];
 
@@ -171,6 +325,14 @@ export default function HomeV2() {
     (selectedLocations.length > 0 ? 1 : 0) +
     (selectedPrice ? 1 : 0) +
     (preferOpenNow ? 1 : 0);
+  const todayHours = useMemo(
+    () => (randomRestaurant ? getTodayHoursDisplay(randomRestaurant) : null),
+    [randomRestaurant],
+  );
+  const pickRatingLine = useMemo(
+    () => (randomRestaurant ? formatRatingLine(randomRestaurant) : null),
+    [randomRestaurant],
+  );
 
   const clearFiltersRow = hasActiveFilters && (
     <div className="mb-2 flex justify-end lg:mb-3">
@@ -473,6 +635,11 @@ export default function HomeV2() {
                       <p className="text-lg font-bold" style={{ color: 'var(--bp-text)' }}>
                         {randomRestaurant.name}
                       </p>
+                      {pickRatingLine ? (
+                        <p className="mt-1.5 text-sm font-medium" style={{ color: 'var(--bp-muted)' }}>
+                          {pickRatingLine}
+                        </p>
+                      ) : null}
                     </div>
                     <div
                       className="rounded-lg border p-3"
@@ -502,8 +669,36 @@ export default function HomeV2() {
                       <p className="font-semibold" style={{ color: 'var(--bp-text)' }}>
                         {randomRestaurant.price}
                       </p>
+                      {todayHours ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span
+                            className="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                            style={{
+                              background:
+                                todayHours.isOpen === true
+                                  ? 'rgba(22, 163, 74, 0.15)'
+                                  : todayHours.isOpen === false
+                                    ? 'rgba(220, 38, 38, 0.12)'
+                                    : 'rgba(100, 116, 139, 0.15)',
+                              color:
+                                todayHours.isOpen === true
+                                  ? '#166534'
+                                  : todayHours.isOpen === false
+                                    ? '#991B1B'
+                                    : '#334155',
+                            }}
+                          >
+                            {todayHours.statusText}
+                          </span>
+                          {todayHours.todayLine ? (
+                            <span className="text-xs" style={{ color: 'var(--bp-muted)' }}>
+                              {todayHours.todayLine}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
-                    {randomRestaurant.hours_of_operation?.trim() ? (
+                    {!todayHours?.todayLine && randomRestaurant.hours_of_operation?.trim() ? (
                       <div
                         className="rounded-lg border p-3"
                         style={{ background: 'var(--bp-card)', borderColor: 'var(--bp-secondary)' }}
@@ -511,7 +706,7 @@ export default function HomeV2() {
                         <p className="mb-1 text-xs" style={{ color: 'var(--bp-muted)' }}>
                           Hours
                         </p>
-                        <p className="whitespace-pre-wrap" style={{ color: 'var(--bp-text)' }}>
+                        <p className="whitespace-pre-wrap text-sm" style={{ color: 'var(--bp-text)' }}>
                           {randomRestaurant.hours_of_operation.trim()}
                         </p>
                       </div>

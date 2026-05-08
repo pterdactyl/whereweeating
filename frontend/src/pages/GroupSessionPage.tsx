@@ -7,6 +7,11 @@ import { clearAuth, getAuthToken, getAuthUserId } from '../lib/auth';
 import { clearStoredHostClaim, getStoredHostClaim, setStoredHostClaim } from '../lib/groupSessionHost';
 import type { GroupSession, Participant, SessionFilters } from '../types/GroupSession';
 import type { Restaurant } from '../types/Restaurant';
+import {
+  type ApiRestaurantRow,
+  formatRatingLine,
+  mapRestaurantFromApi,
+} from '../lib/formatRestaurantRating';
 import Multiselect from '../components/Multiselect';
 
 type SessionResponse = {
@@ -443,14 +448,8 @@ function ActiveSessionView({
         if (!restRes.ok) {
           showToastRef.current('error', 'Failed to load restaurants');
         } else {
-          const restaurants = (await restRes.json()) as Restaurant[];
-          setAllRestaurants(
-            restaurants.map(r => ({
-              ...r,
-              hours_of_operation: r.hours_of_operation ?? null,
-              weekly_hours: r.weekly_hours ?? null,
-            })),
-          );
+          const restaurants = (await restRes.json()) as ApiRestaurantRow[];
+          setAllRestaurants(restaurants.map(mapRestaurantFromApi));
         }
 
       } catch {
@@ -1150,6 +1149,7 @@ function ActiveSessionView({
             {data.session.state === 'result' && data.session.result_restaurant_id && (() => {
               const finalRestaurant = allRestaurants.find(r => r.id === data.session.result_restaurant_id);
               if (!finalRestaurant) return null;
+              const finalRatingLine = formatRatingLine(finalRestaurant);
               return (
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <p className="text-sm font-semibold text-gray-700 mb-2">Final pick</p>
@@ -1158,6 +1158,12 @@ function ActiveSessionView({
                     <p className="text-sm text-gray-600">
                       {finalRestaurant.category} • {finalRestaurant.location} •{' '}
                       <span className="font-semibold">{finalRestaurant.price}</span>
+                      {finalRatingLine ? (
+                        <>
+                          {' '}
+                          • <span className="font-semibold">{finalRatingLine}</span>
+                        </>
+                      ) : null}
                     </p>
                     {finalRestaurant.hours_of_operation?.trim() ? (
                       <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">

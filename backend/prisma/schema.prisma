@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model group_participant_filters {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id         String             @db.Uuid
+  participant_id     String             @db.Uuid
+  filters            Json               @default("{\"price\": null, \"locations\": [], \"categories\": []}")
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime           @default(now()) @db.Timestamptz(6)
+  group_participants group_participants @relation(fields: [participant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  group_sessions     group_sessions     @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([session_id, participant_id], map: "group_participant_filters_session_participant_unique")
+  @@index([participant_id])
+  @@index([session_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model group_participants {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                String                      @db.Uuid
+  name                      String
+  joined_at                 DateTime                    @default(now()) @db.Timestamptz(6)
+  is_ready                  Boolean                     @default(false)
+  ready_at                  DateTime?                   @db.Timestamptz(6)
+  group_participant_filters group_participant_filters[]
+  group_sessions            group_sessions              @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([session_id, name], map: "group_participants_session_name_uq")
+  @@index([session_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model group_sessions {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                      String                      @unique
+  host_user_id              String?                     @db.Uuid
+  state                     String                      @default("lobby")
+  result_restaurant_id      String?                     @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  host_filters              Json?                       @default("{\"price\": null, \"locations\": [], \"categories\": []}")
+  shortlist_restaurant_ids  String[]                    @default([])
+  shown_restaurant_ids      String[]                    @default([])
+  liked_restaurant_ids      String[]                    @default([])
+  expires_at                DateTime                    @default(dbgenerated("(now() + '01:00:00'::interval)")) @db.Timestamptz(6)
+  host_claim_secret         String?
+  group_participant_filters group_participant_filters[]
+  group_participants        group_participants[]
+  users                     users?                      @relation(fields: [host_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  restaurants               restaurants?                @relation(fields: [result_restaurant_id], references: [id], onUpdate: NoAction)
+
+  @@index([host_user_id])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model restaurants {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  category           String?
+  location           String?
+  price              String?
+  yelpId             String?          @unique @map("yelp_id")
+  rating             Float?
+  reviewCount        Int?             @map("review_count")
+  categories         String[]         @default([])
+  imageUrl           String?          @map("image_url")
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  phone              String?
+  mapsUrl            String?          @map("maps_url")
+  created_at         DateTime?        @default(now()) @db.Timestamptz(6)
+  hours_of_operation String?
+  weekly_hours       Json?
+  group_sessions     group_sessions[]
+
+  @@index([yelpId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String           @unique
+  password_hash  String
+  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  group_sessions group_sessions[]
+}

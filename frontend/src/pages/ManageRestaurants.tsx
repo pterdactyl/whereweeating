@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -9,6 +9,7 @@ import { ThemeProvider, createTheme, useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { FaCog } from 'react-icons/fa';
 import type { Restaurant } from '../types/Restaurant';
+import { type ApiRestaurantRow, mapRestaurantFromApi } from '../lib/formatRestaurantRating';
 import { apiUrl } from "../lib/api";
 import { useToast } from '../components/Toast';
 import GearMenuContent from '../components/GearMenuContent';
@@ -19,6 +20,7 @@ import {
   validateWeeklyHours,
   dbWeeklyHoursToNamed,
   namedToDbWeeklyHours,
+  weeklyHoursHasIntervals,
   weeklyNamedToDisplayLines,
   WEEKDAYS,
   type WeeklyHoursNamed,
@@ -211,6 +213,7 @@ function ManageRestaurants() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gearOpen, setGearOpen] = useState(false);
+  const [listSearch, setListSearch] = useState('');
   const [newData, setNewData] = useState<{
     name: string;
     category: string;
@@ -237,14 +240,8 @@ function ManageRestaurants() {
     setIsLoading(true);
     fetch(apiUrl(`/api/restaurants`))
       .then(res => res.json())
-      .then((data: Restaurant[]) => {
-        setRestaurants(
-          (data ?? []).map(r => ({
-            ...r,
-            hours_of_operation: r.hours_of_operation ?? null,
-            weekly_hours: r.weekly_hours ?? null,
-          })),
-        );
+      .then((data: ApiRestaurantRow[]) => {
+        setRestaurants((data ?? []).map(mapRestaurantFromApi));
         setIsLoading(false);
       })
       .catch(() => {
@@ -253,6 +250,14 @@ function ManageRestaurants() {
       });
   }, []);
 
+  const visibleRestaurants = useMemo(() => {
+    const q = listSearch.trim().toLowerCase();
+    if (!q) return restaurants;
+    return restaurants.filter(r => {
+      const blob = `${r.name} ${r.category} ${r.location} ${r.price ?? ''}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }, [restaurants, listSearch]);
 
   const handleAdd = async () => {
     if (!newData.name.trim() || !newData.category.trim() || !newData.location.trim()) {
@@ -453,7 +458,6 @@ function ManageRestaurants() {
   }; 
 
   const handleEditClick = (r: Restaurant) => {
-    console.log("Editing ID:", r.id);
     setEditing({
       ...r,
       hours_of_operation: r.hours_of_operation,
@@ -466,18 +470,35 @@ function ManageRestaurants() {
     <ThemeProvider theme={manageMuiTheme}>
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex justify-end mb-2">
-          <div className="relative">
+        <h2 className="text-3xl font-bold mb-4">Manage Restaurants</h2>
+
+        <div className="sticky top-0 z-20 -mx-4 px-4 py-3 mb-6 flex flex-col gap-2 border-b border-gray-200 bg-gray-50/95 backdrop-blur-sm sm:flex-row sm:items-center sm:gap-3">
+          <label htmlFor="manage-restaurant-search" className="sr-only">
+            Search restaurants
+          </label>
+          <input
+            id="manage-restaurant-search"
+            type="search"
+            value={listSearch}
+            onChange={e => setListSearch(e.target.value)}
+            placeholder="Search by name, category, or location…"
+            disabled={restaurants.length === 0}
+            className="min-h-[44px] w-full flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10 disabled:cursor-not-allowed disabled:bg-gray-100 sm:min-w-0"
+          />
+          <div className="relative flex shrink-0 justify-end sm:justify-start">
             <button
               type="button"
               onClick={() => setGearOpen(o => !o)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition hover:shadow-md bg-white"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm transition hover:shadow-md"
+              aria-expanded={gearOpen}
+              aria-haspopup="menu"
+              aria-label="Menu"
             >
               <FaCog className="text-lg" />
             </button>
             {gearOpen && (
               <div
-                className="absolute right-0 mt-2 min-w-[11rem] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg text-gray-900 z-30"
+                className="absolute right-0 top-full z-30 mt-2 min-w-[11rem] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg text-gray-900"
                 role="menu"
               >
                 <GearMenuContent onClose={() => setGearOpen(false)} />
@@ -485,7 +506,6 @@ function ManageRestaurants() {
             )}
           </div>
         </div>
-        <h2 className="text-3xl font-bold mb-6">Manage Restaurants</h2>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -612,9 +632,16 @@ function ManageRestaurants() {
                   {isLoggedIn ? 'Add your first restaurant using the form above!' : 'Log in to start adding restaurants.'}
                 </p>
               </div>
+            ) : visibleRestaurants.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-xl font-semibold mb-2 text-gray-900">No matches</p>
+                <p className="text-gray-600">
+                  Nothing matches &quot;{listSearch.trim()}&quot;. Try a different search.
+                </p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {restaurants.map(r => (
+                {visibleRestaurants.map(r => (
                   <div
                     key={r.id}
                     className={`bg-white rounded-lg shadow-md p-6 transition-all ${
@@ -752,7 +779,7 @@ function ManageRestaurants() {
                               </p>
                             ) : null}
                             <p className="text-xs text-gray-500">
-                              {r.weekly_hours && Object.keys(r.weekly_hours).length > 0
+                              {weeklyHoursHasIntervals(r.weekly_hours)
                                 ? 'Weekly schedule saved (used for open-now).'
                                 : 'No weekly schedule — open-now uses “unknown hours” fallback.'}
                             </p>

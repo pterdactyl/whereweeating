@@ -252,6 +252,8 @@ app.post('/api/restaurants', addRestaurantLimiter, authenticateToken, async (req
       price: String(price).trim(),
       hours_of_operation: ho,
       weekly_hours: parseWeeklyHoursFromBody(weekly_hours),
+      rating: null,
+      review_count: null,
     });
 
     return res.status(201).json(created);

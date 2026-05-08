@@ -7,12 +7,17 @@
   "scripts": {
     "back": "nodemon --watch . --ext ts,json --exec tsx server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "sync:restaurants": "node scripts/syncRestaurants.js",
+    "report:restaurant-dupes": "node scripts/restaurantDedupeReport.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "@supabase/supabase-js": "^2.93.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
@@ -20,7 +25,8 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.3",
-    "lowdb": "^7.0.1"
+    "lowdb": "^7.0.1",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

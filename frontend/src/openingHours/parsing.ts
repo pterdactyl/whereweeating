@@ -18,13 +18,6 @@ export function isOvernightOpenClose(openMinutes: number, closeMinutes: number):
   return closeMinutes < openMinutes;
 }
 
-/** Normalize to HH:mm 24h. */
-export function formatHm(openMinutes: number): string {
-  const h = Math.floor(openMinutes / 60);
-  const m = openMinutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
 /** Validate one interval — returns issue message or null. */
 export function validateInterval(interval: HoursInterval): string | null {
   const o = parseHmMinutes(interval.open);

@@ -29,17 +29,39 @@ function normalizeIntervalList(raw: unknown): { open: string; close: string }[] 
     if (!row || typeof row !== 'object') continue;
     const o = (row as { open?: unknown }).open;
     const c = (row as { close?: unknown }).close;
-    if (typeof o === 'string' && typeof c === 'string') {
-      out.push({ open: o.trim(), close: c.trim() });
+    const start = (row as { start?: unknown }).start;
+    const end = (row as { end?: unknown }).end;
+    const open = typeof o === 'string' ? o : typeof start === 'string' ? start : null;
+    const close = typeof c === 'string' ? c : typeof end === 'string' ? end : null;
+    if (typeof open === 'string' && typeof close === 'string') {
+      out.push({ open: open.trim(), close: close.trim() });
     }
   }
   return out;
+}
+
+/** Yelp `/businesses/{id}` sync shape: `[{ day: 0..6, intervals: [{ start, end }] }, …]`. */
+function namedFromYelpDayArray(rows: unknown[]): WeeklyHoursNamed {
+  const base = emptyWeeklyHours();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const dayNum = (row as { day?: unknown }).day;
+    if (typeof dayNum !== 'number' || dayNum < 0 || dayNum > 6) continue;
+    const weekday = JS_TO_WEEKDAY[String(dayNum)];
+    if (!weekday) continue;
+    base[weekday] = normalizeIntervalList((row as { intervals?: unknown }).intervals);
+  }
+  return base;
 }
 
 /** Convert API `weekly_hours` (0–6 keys and/or named keys) → editor model. */
 export function dbWeeklyHoursToNamed(wh: WeeklyHoursSchedule | null | undefined): WeeklyHoursNamed {
   const base = emptyWeeklyHours();
   if (!wh || typeof wh !== 'object') return base;
+
+  if (Array.isArray(wh)) {
+    return namedFromYelpDayArray(wh);
+  }
 
   const keys = Object.keys(wh);
   const usesNames = keys.some(k => (WEEKDAYS as readonly string[]).includes(k));
@@ -75,6 +97,12 @@ export function namedToDbWeeklyHours(named: WeeklyHoursNamed): WeeklyHoursSchedu
   }
 
   return any ? out : null;
+}
+
+/** True if stored JSON parses to at least one open interval (keyed or Yelp array). */
+export function weeklyHoursHasIntervals(wh: WeeklyHoursSchedule | null | undefined): boolean {
+  const named = dbWeeklyHoursToNamed(wh);
+  return WEEKDAYS.some(d => (named[d]?.length ?? 0) > 0);
 }
 
 /** Friendly multi-line text for the customer-facing hours field. */

@@ -60,9 +60,28 @@ function dayIntervals(raw: unknown): { open: string; close: string }[] {
     if (!item || typeof item !== 'object') continue;
     const o = (item as { open?: unknown }).open;
     const c = (item as { close?: unknown }).close;
-    if (typeof o === 'string' && typeof c === 'string') out.push({ open: o, close: c });
+    const start = (item as { start?: unknown }).start;
+    const end = (item as { end?: unknown }).end;
+    const open = typeof o === 'string' ? o : typeof start === 'string' ? start : null;
+    const close = typeof c === 'string' ? c : typeof end === 'string' ? end : null;
+    if (typeof open === 'string' && typeof close === 'string') out.push({ open, close });
   }
   return out;
+}
+
+function weeklyHoursToDayMap(weeklyHours: unknown): Record<string, unknown> | null {
+  if (!weeklyHours || typeof weeklyHours !== 'object') return null;
+  if (Array.isArray(weeklyHours)) {
+    const map: Record<string, { open: string; close: string }[]> = {};
+    for (const row of weeklyHours) {
+      if (!row || typeof row !== 'object') continue;
+      const dayNum = (row as { day?: unknown }).day;
+      if (typeof dayNum !== 'number' || dayNum < 0 || dayNum > 6) continue;
+      map[String(dayNum)] = dayIntervals((row as { intervals?: unknown }).intervals);
+    }
+    return map;
+  }
+  return weeklyHours as Record<string, unknown>;
 }
 
 /**
@@ -73,8 +92,11 @@ function dayIntervals(raw: unknown): { open: string; close: string }[] {
 export function isOpenNowToronto(weeklyHours: unknown, date: Date = new Date()): boolean {
   if (!weeklyHours || typeof weeklyHours !== 'object') return true;
 
+  const dayMap = weeklyHoursToDayMap(weeklyHours);
+  if (!dayMap) return true;
+
   const dayKey = String(getTorontoWeekdayJs(date));
-  const intervals = dayIntervals((weeklyHours as Record<string, unknown>)[dayKey]);
+  const intervals = dayIntervals(dayMap[dayKey]);
   if (intervals.length === 0) return false;
 
   const nowM = getTorontoMinutesSinceMidnight(date);
@@ -85,6 +107,10 @@ export function isOpenNowToronto(weeklyHours: unknown, date: Date = new Date()):
 export function passesPreferOpenNow(weeklyHours: unknown, date: Date = new Date()): boolean {
   if (weeklyHours == null) return true;
   if (typeof weeklyHours !== 'object') return true;
-  if (Object.keys(weeklyHours as object).length === 0) return true;
+  if (Array.isArray(weeklyHours)) {
+    if (weeklyHours.length === 0) return true;
+  } else if (Object.keys(weeklyHours as object).length === 0) {
+    return true;
+  }
   return isOpenNowToronto(weeklyHours, date);
 }

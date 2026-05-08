@@ -12,6 +12,8 @@ export type Restaurant = {
   price: string
   hours_of_operation: string | null
   weekly_hours: WeeklyHoursSchedule
+  rating: number | null
+  review_count: number | null
 }
 
 export type User = {
@@ -36,7 +38,8 @@ const supabase = createClient(
   SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SUPABASE_KEY,
 )
 
-const RESTAURANT_COLUMNS = 'id,name,category,location,price,hours_of_operation,weekly_hours' as const
+const RESTAURANT_COLUMNS =
+  'id,name,category,location,price,hours_of_operation,weekly_hours,rating,review_count' as const
 
 async function getRestaurants(): Promise<Restaurant[]> {
   const { data, error } = await supabase
