@@ -11,8 +11,7 @@ Built to solve the classic problem:
 
 ## 🚀 Live Demo
 
-🌐 Production: https://bitepick.vercel.app\
-🛠 Backend: Render (Node + Express API)
+🌐 Production: https://bitepick.vercel.app (frontend + API on Vercel)
 
 ------------------------------------------------------------------------
 
@@ -83,9 +82,10 @@ authentication, and future group features.
 
 ### Deployment
 
--   ▲ Vercel (Frontend)
--   🚀 Render (Backend)
+-   ▲ Vercel (React static build + Express API at `/api/*`)
 -   🌍 Environment-based configuration
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel env vars and migration steps from a split Render + Vercel setup.
 
 ------------------------------------------------------------------------
 
