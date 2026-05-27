@@ -1,141 +1,194 @@
-# 🍽️ BitePick
+# BitePick
 
-A modern restaurant decision web app that helps individuals --- and soon
-groups --- quickly decide where to eat.
+**Stop debating where to eat.** BitePick helps you pick a restaurant in seconds—solo with filters and a random draw, or together in a live group session that turns everyone’s preferences into one place.
 
-Built to solve the classic problem:
+**Live app:** [bitepick.vercel.app](https://bitepick.vercel.app)
 
-> "I don't know... what do you want to eat?"
+---
 
-------------------------------------------------------------------------
+## Features
 
-## 🚀 Live Demo
+- **Pick for yourself** — Filter by cuisine, neighborhood, price, and “open now,” then get a random match from the catalog.
+- **Run a group session** — Create a shareable room code, collect each person’s preferences, and move through lobby → shortlist → final pick without leaving the browser.
+- **Sign in to manage the catalog** — Registered users can add, edit, and remove restaurants; admins get elevated access via an allowlist.
+- **Hours-aware suggestions** — Structured weekly hours and “prefer open now” keep recommendations realistic when timing matters.
+- **Production deployment** — Single Vercel project serves the React UI and Express API on one origin (`/api/*`).
 
-🌐 Production: https://bitepick.vercel.app (frontend + API on Vercel)
+---
 
-------------------------------------------------------------------------
+## Architecture
 
-## 🧠 Why I Built This
+```mermaid
+flowchart LR
+  subgraph client [Browser]
+    UI[React SPA]
+  end
 
-This project started as a way to: - Practice full-stack development -
-Implement real authentication & authorization - Design clean UI/UX
-flows - Deploy a production-ready application - Prepare for DevOps &
-backend-focused roles
+  subgraph vercel [Vercel]
+    Static[Static assets]
+    Fn["Serverless /api"]
+  end
 
-It evolved into a scalable restaurant decision platform with filtering,
-authentication, and future group features.
+  subgraph backend [Node]
+    API[Express API]
+  end
 
-------------------------------------------------------------------------
+  subgraph data [Supabase]
+    PG[(Postgres)]
+  end
 
-## ✨ Features (v1 -- Single User Mode)
+  subgraph external [External]
+    Yelp[Yelp Fusion API]
+  end
 
-### 🎲 Random Restaurant Generator
+  UI --> Static
+  UI -->|"/api/*"| Fn
+  Fn --> API
+  API --> PG
+  Yelp -.->|sync scripts only| PG
+```
 
--   Generates a random restaurant from database
--   Fully filterable before randomizing
+| Layer | Role |
+|--------|------|
+| **Frontend** (`frontend/`) | React 19 + Vite + Tailwind. Client-side filtering for solo picks; group UI talks to the API. Local dev proxies `/api` to the backend. |
+| **Backend** (`backend/`) | Express 5 REST API: auth (JWT), restaurants CRUD, group sessions, weighted ranking. Data access via `@supabase/supabase-js` with the service role key (server only). |
+| **Database** | Supabase Postgres: `users`, `restaurants`, `group_sessions`, `group_participants`, and related tables. Incremental SQL lives in `supabase/migrations/`. |
+| **Deployment** | Root `vercel.json` builds the SPA and bundles the API as `api/index.ts` → compiled `backend/dist/server.js`. |
+| **External APIs** | Yelp Fusion powers optional `npm run sync:restaurants` (maintenance script, not the live request path). |
 
-### 🔍 Smart Filtering
+**Repository layout**
 
--   Multi-select category filter
--   Multi-select location filter
--   Price filtering
--   Frontend filtering + backend data retrieval
+```
+bitepick/
+├── frontend/          # React app
+├── backend/           # Express API, DB module, ranking logic
+├── api/               # Vercel serverless entry
+├── supabase/migrations/
+└── docs/DEPLOYMENT.md # Vercel env vars and production checklist
+```
 
-### 🔐 Authentication (Custom JWT)
+---
 
--   Register / Login
--   Token-based auth stored in localStorage
--   Protected routes
--   Authorization middleware on backend
+## Tech stack
 
-### 🛠 Restaurant Management (Authenticated Users)
+| Area | Choices |
+|------|---------|
+| Frontend | React, Vite, React Router, Tailwind CSS |
+| Backend | Node.js, Express, TypeScript, JWT (`jsonwebtoken` + `bcryptjs`) |
+| Database | Supabase (Postgres) |
+| Ops / tooling | Prisma (schema + Yelp sync scripts only), Supabase CLI migrations |
+| Hosting | Vercel |
 
--   Add restaurants
--   Edit restaurants
--   Delete restaurants
--   Duplicate prevention
--   Proper error handling (409, 403, 404)
+---
 
-------------------------------------------------------------------------
+## Local development
 
-## 🏗️ Tech Stack
+### Prerequisites
 
-### Frontend
+- Node.js 20+
+- A [Supabase](https://supabase.com) project with the app schema (see **Database** below)
+- npm
 
--   ⚛️ React (Vite)
--   🧭 React Router
--   🎨 Tailwind CSS
--   🔥 Custom dropdown multi-select components
+### 1. Install dependencies
 
-### Backend
+```bash
+npm run install:all
+# or: npm ci --prefix backend && npm ci --prefix frontend
+```
 
--   🟢 Node.js
--   🚂 Express
--   🔐 JWT Authentication
--   🗂 REST API Architecture
+### 2. Configure environment
 
-### Database
+**Backend** — copy and edit:
 
--   🗃 Initially: lowdb (local JSON for development visibility)
--   ☁️ Now: Supabase Postgres
--   🔒 RLS (Row Level Security)
+```bash
+cp backend/.env.example backend/.env
+```
 
-### Deployment
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `JWT_SECRET` | Yes | Signs login tokens; use a long random string |
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-side DB access (never expose to the browser) |
+| `ADMIN_EMAILS` | Yes | Comma-separated emails allowed admin actions |
+| `FRONTEND_URL` | Local dev | `http://localhost:5173` for CORS |
+| `PORT` | Optional | API port (default `5000`) |
+| `DATABASE_URL` | Scripts only | Postgres URL for Prisma (`sync:restaurants`, dedupe report) |
+| `YELP_API_KEY` | Scripts only | Yelp Fusion key for catalog sync |
 
--   ▲ Vercel (React static build + Express API at `/api/*`)
--   🌍 Environment-based configuration
+**Frontend** — copy and edit:
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel env vars and migration steps from a split Render + Vercel setup.
+```bash
+cp frontend/.env.example frontend/.env
+```
 
-------------------------------------------------------------------------
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `VITE_API_BASE_URL` | Local dev | Set to `http://localhost:5173` so Vite proxies `/api` to the backend |
+| *(unset)* | Production | Same-origin requests; do not set on Vercel |
 
-## 🛣️ Roadmap
+### 3. Database
 
-### 👥 Group Session Mode (In Progress)
+This repo ships **incremental** migrations under `supabase/migrations/`. Apply them in filename order on a Postgres database that already has the base tables (`users`, `restaurants`, `group_sessions`, etc.). The canonical shape is documented in `backend/prisma/schema.prisma` (generated from the live database).
 
--   Create shareable group sessions
--   Voting / veto system
--   Weighted selection logic
--   Hidden pool auto-fill system
+Using the Supabase SQL editor or CLI:
 
-### 🤖 Future Enhancements
+```bash
+# Example with Supabase CLI (linked project)
+supabase db push
+# or run each file in supabase/migrations/ manually in order
+```
 
--   Monthly restaurant data validation
--   AI-assisted metadata cleanup
--   Ranking algorithm improvements
--   Analytics dashboard
--   Restaurant suggestions based on usage history
+### 4. Run the app
 
-------------------------------------------------------------------------
+Two terminals:
 
-## 🎯 Goals of This Project
+```bash
+npm run dev:backend   # http://localhost:5000 — API
+npm run dev:frontend  # http://localhost:5173 — UI, /api proxied
+```
 
-This project demonstrates:
+Verify the API: `curl http://localhost:5000/api/health` → `{"ok":true}`.
 
--   Full-stack architecture
--   REST API design
--   Authentication & authorization
--   Database modeling
--   Deployment pipelines
--   Real-world debugging
--   Product iteration thinking
+### Optional: seed restaurants from Yelp
 
-------------------------------------------------------------------------
+Requires `DATABASE_URL` and `YELP_API_KEY` in `backend/.env`:
 
-## 👨🏻‍💻 Author
+```bash
+npm run sync:restaurants --prefix backend
+```
 
-Peter Lin\
-Full-Stack Developer\
-AWS Certified\
+---
 
-------------------------------------------------------------------------
+## Engineering decisions
 
-## ⭐ If You Like It
+**Custom JWT auth instead of Supabase Auth** — Keeps login/register on the API with hashed passwords in Postgres and a simple `Authorization: Bearer` flow. Tradeoff: no built-in OAuth or refresh-token UX; acceptable for a focused product surface.
 
-Feel free to star the repo or fork it.
+**Supabase client + service role on the server** — Runtime handlers use `@supabase/supabase-js` rather than Prisma to keep the deployed API bundle small and queries explicit. Prisma is reserved for offline scripts (Yelp sync, dedupe reports) where `DATABASE_URL` is appropriate.
 
-And next time someone asks:
+**Same-origin API in production** — The frontend resolves API URLs from `window.location.origin`, so production never hard-codes a separate API host. Local dev uses Vite’s proxy via `VITE_API_BASE_URL=http://localhost:5173`.
 
-> "Where should we eat?"
+**Weighted group ranking** — Group picks score restaurants by overlapping filters across participants, with host filters constraining the pool and optional “open now” filtering. Shortlist generation uses a weighted draw among top candidates to avoid always picking the same highest score.
 
-You'll have the answer. 🍜🔥
+**Guest hosts** — Sessions can be created without an account; a `hostClaimSecret` stored client-side authorizes host-only actions, so casual groups do not require sign-up.
+
+**Rate limiting** — Auth and restaurant-creation routes are limited to reduce brute-force and abuse on a serverless surface.
+
+**Incremental SQL in-repo** — Schema evolution is tracked as ordered migration files for Supabase, while `schema.prisma` documents the full model for tooling.
+
+---
+
+## Deployment
+
+Production runs on Vercel (frontend + API). Environment variables, domain setup, and troubleshooting are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+---
+
+## Author
+
+Built by **Peter Lin** — [GitHub](https://github.com/pterdactyl)
+
+---
+
+## License
+
+Private / portfolio project. All rights reserved unless otherwise noted.

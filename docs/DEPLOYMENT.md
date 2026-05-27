@@ -1,5 +1,7 @@
 # Deployment (Vercel — frontend + API)
 
+See the [README](../README.md) for product overview, local setup, and architecture. This document covers production on Vercel.
+
 BitePick runs as a **single Vercel project**: the React app is static files, and the Express API is one serverless function at `/api/*`.
 
 Local development is unchanged: Vite on port 5173 with `/api` proxied to Express on port 5000.

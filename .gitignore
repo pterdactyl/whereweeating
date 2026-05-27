@@ -11,6 +11,7 @@ node_modules
 dist
 .vercel
 .env
+supabase/.temp/
 dist-ssr
 *.local
 
